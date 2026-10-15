@@ -8,3 +8,8 @@ coverage/
 .env.*.local
 .DS_Store
 .vite/
+
+# direnv / nix
+.direnv/
+result
+result-*

@@ -30,6 +30,23 @@ apps/api   Fastify + TypeScript API — owns all DB access, auth, auditing
 
 ## Local development
 
+### With Nix (recommended — identical toolchain on any machine)
+
+A [Nix flake](flake.nix) provides a dev shell with the exact Node.js, npm,
+MariaDB client, and openssl this project expects — no system installs.
+
+```bash
+nix develop            # enter the dev shell (Node 22, npm, mariadb, openssl)
+# or, with direnv:
+direnv allow           # auto-enters the shell on cd (uses .envrc)
+```
+
+The first `nix develop` writes a `flake.lock` pinning an exact nixpkgs
+revision — commit it for byte-for-byte reproducibility across machines.
+Then follow the standard steps below (they run the same inside the shell).
+
+### Standard (system Node.js >= 20)
+
 ```bash
 cp .env.example .env          # then edit DB credentials + SESSION_SECRET
 npm install                   # installs all workspaces
