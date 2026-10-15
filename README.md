@@ -107,6 +107,9 @@ Behind staff auth (`requireAuth`), under `/api/v1`:
   (read-only `MerchantItem` grouped by list, joined to item names).
 - **Spells** — `GET /spells?query=`, `GET /spells/:id` (read-only `Spell`).
 - **Styles** — `GET /styles?query=`, `GET /styles/:id` (read-only `Style`).
+- **Geography** — `GET /regions?query=` + `GET /regions/:id` (with its zones),
+  `GET /zones?query=` + `GET /zones/:id`, `GET /teleports?query=`
+  (read-only `Regions`/`Zones`/`Teleport`, region↔zone cross-linked).
 
 World-content pages are grouped under a **World** menu in the nav.
 - **Bans** — `GET /bans?type=`, `POST /bans` (type A/I/B, reason required),

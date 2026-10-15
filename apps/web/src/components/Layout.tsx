@@ -16,6 +16,9 @@ const WORLD_NAV = [
   { to: "/merchant-lists", label: "Merchant lists" },
   { to: "/spells", label: "Spells" },
   { to: "/styles", label: "Styles" },
+  { to: "/regions", label: "Regions" },
+  { to: "/zones", label: "Zones" },
+  { to: "/teleports", label: "Teleports" },
 ];
 
 const ADMIN_NAV = [

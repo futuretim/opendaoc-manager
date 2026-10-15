@@ -543,9 +543,10 @@ game-content toolset**. This section catalogues it as a roadmap.
 > detail), **Mobs** (`Mob` spawns), **NPC templates** (`NpcTemplate`,
 > cross-linked from mobs), **Loot templates** (`LootTemplate` + `MobXLootTemplate`)
 > **Merchant lists** (`MerchantItem`), **Spells** (`Spell`) and **Styles**
-> (`Style`) — is in, grouped under a "World" nav menu, with loot/merchant
-> entries cross-linked to the Items browser. Remaining: content editing,
-> geography (zones/regions/teleports), and the dashboard.
+> (`Style`) and **Geography** (`Regions`/`Zones`/`Teleport`) — is in, grouped
+> under a "World" nav menu, with loot/merchant entries cross-linked to Items
+> and region↔zone cross-linked. The read-only world-content browsers are now
+> broadly complete. Remaining: content editing, and the dashboard.
 
 1. **M0 — Scaffolding:** Vite SPA + Fastify API skeleton, shared TS config, Docker,
    DB connection to game DB verified, Manager DB migrations, auth stub.

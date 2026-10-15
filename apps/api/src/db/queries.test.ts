@@ -28,6 +28,13 @@ import {
 import { buildListMerchantListsQuery, buildMerchantEntriesQuery } from "./merchants.js";
 import { buildGetSpellQuery, buildSearchSpellsQuery } from "./spells.js";
 import { buildGetStyleQuery, buildSearchStylesQuery } from "./styles.js";
+import {
+  buildGetRegionQuery,
+  buildGetZoneQuery,
+  buildSearchRegionsQuery,
+  buildSearchTeleportsQuery,
+  buildZonesForRegionQuery,
+} from "./geography.js";
 
 describe("account query builders", () => {
   it("searches by name/discord with LIKE params", () => {
@@ -255,5 +262,32 @@ describe("style query builders", () => {
     const q = buildGetStyleQuery(5);
     expect(q.text).toMatch(/WHERE StyleID = \? LIMIT 1$/);
     expect(q.values).toEqual([5]);
+  });
+});
+
+describe("geography query builders", () => {
+  it("searches regions by name or numeric id", () => {
+    const q = buildSearchRegionsQuery({ q: "frontier", limit: 25, offset: 0 });
+    expect(q.text).toContain("FROM Regions WHERE Name LIKE ? OR RegionID = ?");
+    expect(q.values).toEqual(["%frontier%", -1, 25, 0]);
+  });
+
+  it("fetches a region and its zones", () => {
+    expect(buildGetRegionQuery(1).values).toEqual([1]);
+    const z = buildZonesForRegionQuery(1);
+    expect(z.text).toContain("FROM Zones WHERE RegionID = ?");
+    expect(z.values).toEqual([1]);
+  });
+
+  it("fetches a zone by ZoneID", () => {
+    const q = buildGetZoneQuery(10);
+    expect(q.text).toMatch(/WHERE ZoneID = \? LIMIT 1$/);
+    expect(q.values).toEqual([10]);
+  });
+
+  it("searches teleports by id or type", () => {
+    const q = buildSearchTeleportsQuery({ q: "inn", limit: 25, offset: 0 });
+    expect(q.text).toContain("FROM Teleport WHERE TeleportID LIKE ? OR Type LIKE ?");
+    expect(q.values).toEqual(["%inn%", "%inn%", 25, 0]);
   });
 });

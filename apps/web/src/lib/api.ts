@@ -696,6 +696,83 @@ export const stylesApi = {
   get: (id: number) => apiFetch<{ style: StyleDetail }>(`/styles/${id}`),
 };
 
+// --- Geography (read-only) -------------------------------------------------
+
+export interface RegionSummary {
+  regionID: number;
+  name: string;
+  expansion: number;
+  isFrontier: boolean;
+  housingEnabled: boolean;
+}
+export interface ZoneRef {
+  zoneID: number;
+  name: string;
+}
+export interface RegionDetail extends RegionSummary {
+  description: string;
+  ip: string;
+  port: number;
+  divingEnabled: boolean;
+  waterLevel: number;
+  classType: string;
+  zones: ZoneRef[];
+}
+
+export interface ZoneSummary {
+  zoneID: number;
+  regionID: number;
+  name: string;
+  realm: number;
+  width: number;
+  height: number;
+}
+export interface ZoneDetail extends ZoneSummary {
+  isLava: boolean;
+  divingFlag: number;
+  waterLevel: number;
+  offsetX: number;
+  offsetY: number;
+  experience: number;
+  realmpoints: number;
+  bountypoints: number;
+  coin: number;
+}
+
+export interface Teleport {
+  type: string;
+  teleportID: string;
+  realm: number;
+  regionID: number;
+  x: number;
+  y: number;
+  z: number;
+  heading: number;
+}
+
+export const regionsApi = {
+  search: (query: string, page = 1) =>
+    apiFetch<{ items: RegionSummary[]; page: number; pageSize: number }>(
+      `/regions${qs({ query, page })}`,
+    ),
+  get: (id: number) => apiFetch<{ region: RegionDetail }>(`/regions/${id}`),
+};
+
+export const zonesApi = {
+  search: (query: string, page = 1) =>
+    apiFetch<{ items: ZoneSummary[]; page: number; pageSize: number }>(
+      `/zones${qs({ query, page })}`,
+    ),
+  get: (id: number) => apiFetch<{ zone: ZoneDetail }>(`/zones/${id}`),
+};
+
+export const teleportsApi = {
+  search: (query: string, page = 1) =>
+    apiFetch<{ items: Teleport[]; page: number; pageSize: number }>(
+      `/teleports${qs({ query, page })}`,
+    ),
+};
+
 /** Format a copper price into DAoC platinum/gold/silver/copper. */
 export function formatMoney(copperTotal: number): string {
   if (!copperTotal || copperTotal <= 0) return "0c";
