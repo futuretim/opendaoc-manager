@@ -6,9 +6,11 @@ game server — the staff-facing counterpart to the player-facing
 
 See **[docs/MVP_SPEC.md](docs/MVP_SPEC.md)** for the full specification.
 
-> **Status:** M0 scaffold. Auth, routing, DB wiring, and the OpenDAoC
-> password-hash port (unit-tested) are in place. Feature modules (accounts,
-> characters, bans, dashboard) are stubs built out in later milestones.
+> **Status:** Core functionality implemented — **account management**
+> (search, detail, password reset, privilege/status/mute/warn/notes),
+> **bans** (create/list/lift), and **character inspection** (read-only), all
+> behind staff auth with an audit trail. The stats/overview dashboard is
+> deliberately deferred.
 
 ## Architecture
 
@@ -60,14 +62,14 @@ Generate a session secret with `openssl rand -hex 32`.
 
 ### Creating the first staff user
 
-Staff users live in the Manager DB (`manager_user`). A seed/admin CLI is part of
-a later milestone; for now insert one using the exported hash helper, e.g.:
+Staff users live in the Manager DB (`manager_user`). Create one with the CLI
+(idempotent — re-running updates the password/role):
 
 ```bash
-node -e "import('./apps/api/dist/auth/password.js').then(m=>console.log(m.hashStaffPassword(process.argv[1])))" 'your-password'
+npm run create-user --workspace apps/api -- you@example.com 'your-password' admin
 ```
 
-then `INSERT INTO manager_user (email, password_hash, role) VALUES (...)`.
+Then sign in at the web app with that email/password.
 
 ## Scripts
 
@@ -77,6 +79,23 @@ then `INSERT INTO manager_user (email, password_hash, role) VALUES (...)`.
 | `npm run build` | Build all workspaces |
 | `npm run test` | Run tests (incl. the password-hash vectors) |
 | `npm run migrate` | Apply Manager DB migrations |
+| `npm run create-user --workspace apps/api -- <email> <pw> [admin\|gm]` | Create/update a staff user |
+
+## Functionality (implemented)
+
+Behind staff auth (`requireAuth`), under `/api/v1`:
+
+- **Accounts** — `GET /accounts?query=`, `GET /accounts/:name` (detail +
+  characters + ban status), `POST /accounts/:name/reset-password` (OpenDAoC
+  hashing), `PATCH /accounts/:name` (status/mute/warn/tester/notes; `privLevel`
+  is **admin-only**).
+- **Characters** — `GET /characters?query=&realm=`, `GET /characters/:name`
+  (read-only).
+- **Bans** — `GET /bans?type=`, `POST /bans` (type A/I/B, reason required),
+  `DELETE /bans/:id` (lift).
+
+Every mutating action is written to the Manager `audit_log`. All game-DB writes
+are parameterized and column-scoped.
 
 ## Docker
 

@@ -532,6 +532,13 @@ game-content toolset**. This section catalogues it as a roadmap.
 
 ## 12. Milestones (suggested)
 
+> **Implementation status (2026-10-15):** M0 scaffold ✅, plus the core
+> functionality of **M2 (Accounts)**, **M3 (Characters)**, and the ban half of
+> **M4** are implemented and wired to the SPA, with staff auth + audit logging.
+> The dashboard/server-status work (M1, incl. `serverstats`) is intentionally
+> deferred in favor of functionality. Remaining: real session store, staff-user
+> management UI, audit-log viewer, and the dashboard.
+
 1. **M0 — Scaffolding:** Vite SPA + Fastify API skeleton, shared TS config, Docker,
    DB connection to game DB verified, Manager DB migrations, auth stub.
 2. **M1 — Auth + Dashboard:** staff login/session, `/dashboard/summary`, health,
