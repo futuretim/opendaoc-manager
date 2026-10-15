@@ -18,6 +18,8 @@ import {
 } from "./characters.js";
 import { buildGetQuestQuery, buildSearchQuestsQuery } from "./quests.js";
 import { buildGetItemQuery, buildSearchItemsQuery } from "./items.js";
+import { buildGetMobQuery, buildSearchMobsQuery } from "./mobs.js";
+import { buildGetNpcTemplateQuery, buildSearchNpcTemplatesQuery } from "./npcTemplates.js";
 
 describe("account query builders", () => {
   it("searches by name/discord with LIKE params", () => {
@@ -146,5 +148,38 @@ describe("item query builders", () => {
     expect(q.text).toContain("`Condition`");
     expect(q.text).toMatch(/WHERE Id_nb = \? LIMIT 1$/);
     expect(q.values).toEqual(["my_item"]);
+  });
+});
+
+describe("mob query builders", () => {
+  it("searches by name/guild", () => {
+    const q = buildSearchMobsQuery({ q: "wolf", limit: 25, offset: 0 });
+    expect(q.text).toContain("FROM Mob WHERE Name LIKE ? OR Guild LIKE ?");
+    expect(q.values).toEqual(["%wolf%", "%wolf%", 25, 0]);
+  });
+
+  it("fetches a mob by Mob_ID", () => {
+    const q = buildGetMobQuery("guid-123");
+    expect(q.text).toMatch(/WHERE Mob_ID = \? LIMIT 1$/);
+    expect(q.values).toEqual(["guid-123"]);
+  });
+});
+
+describe("npc template query builders", () => {
+  it("searches by name or numeric TemplateId", () => {
+    const q = buildSearchNpcTemplatesQuery({ q: "42", limit: 25, offset: 0 });
+    expect(q.text).toContain("WHERE Name LIKE ? OR TemplateId = ?");
+    expect(q.values).toEqual(["%42%", 42, 25, 0]);
+  });
+
+  it("uses -1 sentinel for TemplateId when query is non-numeric", () => {
+    const q = buildSearchNpcTemplatesQuery({ q: "guard", limit: 25, offset: 0 });
+    expect(q.values).toEqual(["%guard%", -1, 25, 0]);
+  });
+
+  it("fetches a template by TemplateId", () => {
+    const q = buildGetNpcTemplateQuery(7);
+    expect(q.text).toMatch(/WHERE TemplateId = \? LIMIT 1$/);
+    expect(q.values).toEqual([7]);
   });
 });

@@ -440,6 +440,117 @@ export const itemsApi = {
   get: (idNb: string) => apiFetch<{ item: ItemDetail }>(`/items/${encodeURIComponent(idNb)}`),
 };
 
+// --- Mobs & NPC templates (read-only) --------------------------------------
+
+export interface MobSummary {
+  id: string;
+  name: string;
+  level: number;
+  realm: number;
+  region: number;
+  x: number;
+  y: number;
+  z: number;
+  npcTemplateID: number;
+}
+
+export interface MobDetail extends MobSummary {
+  suffix: string;
+  guild: string;
+  model: number;
+  size: number;
+  speed: number;
+  heading: number;
+  strength: number;
+  constitution: number;
+  dexterity: number;
+  quickness: number;
+  intelligence: number;
+  piety: number;
+  empathy: number;
+  charisma: number;
+  race: number;
+  gender: number;
+  flags: number;
+  aggroLevel: number;
+  aggroRange: number;
+  meleeDamageType: number;
+  respawnInterval: number;
+  roamingRange: number;
+  factionID: number;
+  bodyType: number;
+  houseNumber: number;
+  brain: string;
+  pathID: string;
+  ownerID: string;
+  equipmentTemplateID: string;
+  itemsListTemplateID: string;
+  visibleWeaponSlots: number;
+  isCloakHoodUp: boolean;
+  packageID: string;
+  classType: string;
+}
+
+export interface NpcTemplateSummary {
+  templateId: number;
+  name: string;
+  level: string;
+  model: string;
+  race: number;
+  classType: string;
+}
+
+export interface NpcTemplateDetail extends NpcTemplateSummary {
+  suffix: string;
+  guildName: string;
+  size: string;
+  maxSpeed: number;
+  factionID: number;
+  gender: number;
+  flags: number;
+  meleeDamageType: number;
+  parryChance: number;
+  evadeChance: number;
+  blockChance: number;
+  leftHandSwingChance: number;
+  spells: string;
+  styles: string;
+  abilities: string;
+  strength: number;
+  constitution: number;
+  dexterity: number;
+  quickness: number;
+  intelligence: number;
+  piety: number;
+  charisma: number;
+  empathy: number;
+  aggroLevel: number;
+  aggroRange: number;
+  bodyType: number;
+  maxDistance: number;
+  tetherRange: number;
+  visibleWeaponSlots: number;
+  replaceMobValues: boolean;
+  equipmentTemplateID: string;
+  itemsListTemplateID: string;
+  packageID: string;
+}
+
+export const mobsApi = {
+  search: (query: string, page = 1) =>
+    apiFetch<{ items: MobSummary[]; page: number; pageSize: number }>(`/mobs${qs({ query, page })}`),
+  get: (id: string) => apiFetch<{ mob: MobDetail }>(`/mobs/${encodeURIComponent(id)}`),
+};
+
+export const npcTemplatesApi = {
+  search: (query: string, page = 1) =>
+    apiFetch<{ items: NpcTemplateSummary[]; page: number; pageSize: number }>(
+      `/npc-templates${qs({ query, page })}`,
+    ),
+  get: (templateId: number) =>
+    apiFetch<{ template: NpcTemplateDetail }>(`/npc-templates/${templateId}`),
+};
+
 /** Format a copper price into DAoC platinum/gold/silver/copper. */
 export function formatMoney(copperTotal: number): string {
   if (!copperTotal || copperTotal <= 0) return "0c";

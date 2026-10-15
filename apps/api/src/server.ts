@@ -11,6 +11,7 @@ import { banRoutes } from "./routes/bans.js";
 import { characterRoutes } from "./routes/characters.js";
 import { healthRoutes } from "./routes/health.js";
 import { itemRoutes } from "./routes/items.js";
+import { npcRoutes } from "./routes/npcs.js";
 import { questRoutes } from "./routes/quests.js";
 import { staffRoutes } from "./routes/staff.js";
 
@@ -59,6 +60,7 @@ export async function buildServer(): Promise<FastifyInstance> {
         await banRoutes(secure);
         await questRoutes(secure);
         await itemRoutes(secure);
+        await npcRoutes(secure);
 
         // Admin-only: staff management + audit log.
         await secure.register(async (admin) => {

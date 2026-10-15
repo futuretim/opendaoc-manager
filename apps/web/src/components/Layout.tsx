@@ -6,6 +6,8 @@ const NAV = [
   { to: "/characters", label: "Characters" },
   { to: "/quests", label: "Quests" },
   { to: "/items", label: "Items" },
+  { to: "/mobs", label: "Mobs" },
+  { to: "/npc-templates", label: "Templates" },
   { to: "/bans", label: "Bans" },
 ];
 

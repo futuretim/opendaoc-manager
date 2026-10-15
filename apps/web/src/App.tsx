@@ -12,6 +12,10 @@ import { CharactersPage } from "./pages/CharactersPage";
 import { ItemDetailPage } from "./pages/ItemDetailPage";
 import { ItemsPage } from "./pages/ItemsPage";
 import { LoginPage } from "./pages/LoginPage";
+import { MobDetailPage } from "./pages/MobDetailPage";
+import { MobsPage } from "./pages/MobsPage";
+import { NpcTemplateDetailPage } from "./pages/NpcTemplateDetailPage";
+import { NpcTemplatesPage } from "./pages/NpcTemplatesPage";
 import { QuestDetailPage } from "./pages/QuestDetailPage";
 import { QuestsPage } from "./pages/QuestsPage";
 import { StaffPage } from "./pages/StaffPage";
@@ -33,6 +37,10 @@ export default function App() {
               <Route path="/quests/:id" element={<QuestDetailPage />} />
               <Route path="/items" element={<ItemsPage />} />
               <Route path="/items/:idNb" element={<ItemDetailPage />} />
+              <Route path="/mobs" element={<MobsPage />} />
+              <Route path="/mobs/:id" element={<MobDetailPage />} />
+              <Route path="/npc-templates" element={<NpcTemplatesPage />} />
+              <Route path="/npc-templates/:templateId" element={<NpcTemplateDetailPage />} />
               <Route path="/bans" element={<BansPage />} />
               <Route element={<AdminRoute />}>
                 <Route path="/staff" element={<StaffPage />} />

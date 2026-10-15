@@ -96,6 +96,10 @@ Behind staff auth (`requireAuth`), under `/api/v1`:
   content: `DataQuest`, with multi-step fields parsed for display).
 - **Items** — `GET /items?query=`, `GET /items/:idNb` (read-only world
   content: `ItemTemplate`, grouped detail with DOL value conventions).
+- **Mobs** — `GET /mobs?query=`, `GET /mobs/:id` (read-only `Mob` spawns:
+  location, stats, behavior; links to its NPC template).
+- **NPC templates** — `GET /npc-templates?query=`, `GET /npc-templates/:templateId`
+  (read-only `NpcTemplate`).
 - **Bans** — `GET /bans?type=`, `POST /bans` (type A/I/B, reason required),
   `DELETE /bans/:id` (lift).
 - **Staff (admin-only)** — `GET /staff`, `POST /staff` (create),
