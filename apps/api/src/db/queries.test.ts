@@ -16,6 +16,7 @@ import {
   buildGetCharacterQuery,
   buildSearchCharactersQuery,
 } from "./characters.js";
+import { buildGetQuestQuery, buildSearchQuestsQuery } from "./quests.js";
 
 describe("account query builders", () => {
   it("searches by name/discord with LIKE params", () => {
@@ -107,5 +108,26 @@ describe("ban query builders", () => {
     const status = buildAccountBanStatusQuery("Alice");
     expect(status.text).toContain("WHERE (Type = 'A' OR Type = 'B') AND Account = ?");
     expect(status.values).toEqual(["Alice"]);
+  });
+});
+
+describe("quest query builders", () => {
+  it("searches by name/start name with LIKE", () => {
+    const q = buildSearchQuestsQuery({ q: "epic", limit: 25, offset: 0 });
+    expect(q.text).toContain("FROM DataQuest");
+    expect(q.text).toContain("WHERE Name LIKE ? OR StartName LIKE ?");
+    expect(q.values).toEqual(["%epic%", "%epic%", 25, 0]);
+  });
+
+  it("lists all when no query", () => {
+    const q = buildSearchQuestsQuery({ limit: 10, offset: 0 });
+    expect(q.text).not.toContain("WHERE");
+    expect(q.values).toEqual([10, 0]);
+  });
+
+  it("fetches a quest by numeric ID", () => {
+    const q = buildGetQuestQuery(42);
+    expect(q.text).toMatch(/WHERE ID = \? LIMIT 1$/);
+    expect(q.values).toEqual([42]);
   });
 });

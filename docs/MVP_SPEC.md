@@ -536,8 +536,11 @@ game-content toolset**. This section catalogues it as a roadmap.
 > functionality of **M2 (Accounts)**, **M3 (Characters)**, and the ban half of
 > **M4** are implemented and wired to the SPA, with staff auth + audit logging.
 > The dashboard/server-status work (M1, incl. `serverstats`) is intentionally
-> deferred in favor of functionality. Remaining: real session store, staff-user
-> management UI, audit-log viewer, and the dashboard.
+> deferred in favor of functionality. Since then: real session store,
+> staff-user management UI, and audit-log viewer are done; and the first slice
+> of **world content** (§11 Phase 4) — a read-only **Quests** (`DataQuest`)
+> browser with multi-step parsing — is in. Remaining: content editing, more
+> content domains (items/mobs/loot), and the dashboard.
 
 1. **M0 — Scaffolding:** Vite SPA + Fastify API skeleton, shared TS config, Docker,
    DB connection to game DB verified, Manager DB migrations, auth stub.

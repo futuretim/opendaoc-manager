@@ -10,6 +10,8 @@ import { AuditPage } from "./pages/AuditPage";
 import { CharacterDetailPage } from "./pages/CharacterDetailPage";
 import { CharactersPage } from "./pages/CharactersPage";
 import { LoginPage } from "./pages/LoginPage";
+import { QuestDetailPage } from "./pages/QuestDetailPage";
+import { QuestsPage } from "./pages/QuestsPage";
 import { StaffPage } from "./pages/StaffPage";
 
 export default function App() {
@@ -25,6 +27,8 @@ export default function App() {
               <Route path="/accounts/:name" element={<AccountDetailPage />} />
               <Route path="/characters" element={<CharactersPage />} />
               <Route path="/characters/:name" element={<CharacterDetailPage />} />
+              <Route path="/quests" element={<QuestsPage />} />
+              <Route path="/quests/:id" element={<QuestDetailPage />} />
               <Route path="/bans" element={<BansPage />} />
               <Route element={<AdminRoute />}>
                 <Route path="/staff" element={<StaffPage />} />

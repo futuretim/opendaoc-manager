@@ -328,3 +328,49 @@ export const auditApi = {
       `/audit${qs({ action: params.action, page: params.page })}`,
     ),
 };
+
+// --- Quests (DataQuest, read-only) -----------------------------------------
+
+export interface QuestSummary {
+  id: number;
+  name: string;
+  minLevel: number;
+  maxLevel: number;
+  startRegionID: number;
+  startName: string;
+}
+
+export interface QuestDetail extends QuestSummary {
+  startType: number;
+  acceptText: string;
+  description: string;
+  sourceName: string;
+  sourceText: string;
+  stepType: string;
+  stepText: string;
+  stepItemTemplates: string;
+  advanceText: string;
+  targetName: string;
+  targetText: string;
+  collectItemTemplate: string;
+  maxCount: number;
+  rewardMoney: string;
+  rewardXP: string;
+  rewardCLXP: string;
+  rewardRP: string;
+  rewardBP: string;
+  optionalRewardItemTemplates: string;
+  finalRewardItemTemplates: string;
+  finishText: string;
+  questDependency: string;
+  allowedClasses: string;
+  classType: string;
+}
+
+export const questsApi = {
+  search: (query: string, page = 1) =>
+    apiFetch<{ items: QuestSummary[]; page: number; pageSize: number }>(
+      `/quests${qs({ query, page })}`,
+    ),
+  get: (id: number) => apiFetch<{ quest: QuestDetail }>(`/quests/${id}`),
+};
