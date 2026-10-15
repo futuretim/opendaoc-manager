@@ -16,6 +16,7 @@ import { healthRoutes } from "./routes/health.js";
 import { itemRoutes } from "./routes/items.js";
 import { npcRoutes } from "./routes/npcs.js";
 import { questRoutes } from "./routes/quests.js";
+import { serverPropertyRoutes } from "./routes/serverProperties.js";
 import { staffRoutes } from "./routes/staff.js";
 
 declare module "fastify" {
@@ -67,6 +68,7 @@ export async function buildServer(): Promise<FastifyInstance> {
         await economyRoutes(secure);
         await abilityRoutes(secure);
         await geographyRoutes(secure);
+        await serverPropertyRoutes(secure);
 
         // Admin-only: staff management + audit log.
         await secure.register(async (admin) => {

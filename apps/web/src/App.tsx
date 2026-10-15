@@ -24,6 +24,7 @@ import { QuestDetailPage } from "./pages/QuestDetailPage";
 import { QuestsPage } from "./pages/QuestsPage";
 import { RegionDetailPage } from "./pages/RegionDetailPage";
 import { RegionsPage } from "./pages/RegionsPage";
+import { ServerPropertiesPage } from "./pages/ServerPropertiesPage";
 import { SpellDetailPage } from "./pages/SpellDetailPage";
 import { SpellsPage } from "./pages/SpellsPage";
 import { StaffPage } from "./pages/StaffPage";
@@ -67,6 +68,7 @@ export default function App() {
               <Route path="/zones" element={<ZonesPage />} />
               <Route path="/zones/:id" element={<ZoneDetailPage />} />
               <Route path="/teleports" element={<TeleportsPage />} />
+              <Route path="/server-properties" element={<ServerPropertiesPage />} />
               <Route path="/bans" element={<BansPage />} />
               <Route element={<AdminRoute />}>
                 <Route path="/staff" element={<StaffPage />} />

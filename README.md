@@ -111,7 +111,17 @@ Behind staff auth (`requireAuth`), under `/api/v1`:
   `GET /zones?query=` + `GET /zones/:id`, `GET /teleports?query=`
   (read-only `Regions`/`Zones`/`Teleport`, region↔zone cross-linked).
 
+- **Server config** — `GET /server-properties?query=` + `GET /server-properties/:key`
+  (any staff) and `PATCH /server-properties/:key` (**admin-only, editable**;
+  `Value`-only column-scoped write, audited with old/new value). The first
+  write-enabled world-content editor.
+
 World-content pages are grouped under a **World** menu in the nav.
+
+> **Editing & the server cache:** world content lives in the game DB, which a
+> running server caches in-process. Writes take effect only after the server
+> reloads (e.g. the in-game `&serverproperties` command, or a restart). The UI
+> states this; keep it in mind when enabling edits on other content tables.
 - **Bans** — `GET /bans?type=`, `POST /bans` (type A/I/B, reason required),
   `DELETE /bans/:id` (lift).
 - **Staff (admin-only)** — `GET /staff`, `POST /staff` (create),

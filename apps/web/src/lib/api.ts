@@ -773,6 +773,28 @@ export const teleportsApi = {
     ),
 };
 
+// --- Server properties (read for staff; edit for admins) -------------------
+
+export interface ServerProperty {
+  key: string;
+  category: string;
+  description: string;
+  defaultValue: string;
+  value: string;
+}
+
+export const serverPropertiesApi = {
+  search: (query: string, page = 1, pageSize = 50) =>
+    apiFetch<{ items: ServerProperty[]; page: number; pageSize: number }>(
+      `/server-properties${qs({ query, page, pageSize })}`,
+    ),
+  update: (key: string, value: string) =>
+    apiFetch<{ property: ServerProperty; changed: boolean }>(
+      `/server-properties/${encodeURIComponent(key)}`,
+      { method: "PATCH", body: JSON.stringify({ value }) },
+    ),
+};
+
 /** Format a copper price into DAoC platinum/gold/silver/copper. */
 export function formatMoney(copperTotal: number): string {
   if (!copperTotal || copperTotal <= 0) return "0c";

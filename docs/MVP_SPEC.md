@@ -546,7 +546,10 @@ game-content toolset**. This section catalogues it as a roadmap.
 > (`Style`) and **Geography** (`Regions`/`Zones`/`Teleport`) — is in, grouped
 > under a "World" nav menu, with loot/merchant entries cross-linked to Items
 > and region↔zone cross-linked. The read-only world-content browsers are now
-> broadly complete. Remaining: content editing, and the dashboard.
+> broadly complete, and **editing has begun**: **Server config**
+> (`ServerProperty`) is the first write-enabled editor — admin-only,
+> `Value`-only, audited, with the cache-reload caveat surfaced in the UI.
+> Remaining: extend editing to more tables, and the dashboard.
 
 1. **M0 — Scaffolding:** Vite SPA + Fastify API skeleton, shared TS config, Docker,
    DB connection to game DB verified, Manager DB migrations, auth stub.

@@ -35,6 +35,11 @@ import {
   buildSearchTeleportsQuery,
   buildZonesForRegionQuery,
 } from "./geography.js";
+import {
+  buildGetServerPropertyQuery,
+  buildListServerPropertiesQuery,
+  buildUpdateServerPropertyQuery,
+} from "./serverProperties.js";
 
 describe("account query builders", () => {
   it("searches by name/discord with LIKE params", () => {
@@ -289,5 +294,24 @@ describe("geography query builders", () => {
     const q = buildSearchTeleportsQuery({ q: "inn", limit: 25, offset: 0 });
     expect(q.text).toContain("FROM Teleport WHERE TeleportID LIKE ? OR Type LIKE ?");
     expect(q.values).toEqual(["%inn%", "%inn%", 25, 0]);
+  });
+});
+
+describe("server property query builders", () => {
+  it("backtick-escapes the reserved Key column everywhere", () => {
+    const list = buildListServerPropertiesQuery({ q: "xp", limit: 50, offset: 0 });
+    expect(list.text).toContain("`Key` LIKE ?");
+    expect(list.text).toContain("ORDER BY Category ASC, `Key` ASC");
+    expect(list.values).toEqual(["%xp%", "%xp%", "%xp%", 50, 0]);
+
+    const get = buildGetServerPropertyQuery("xp_rate");
+    expect(get.text).toContain("WHERE `Key` = ? LIMIT 1");
+    expect(get.values).toEqual(["xp_rate"]);
+  });
+
+  it("updates only the Value column, scoped by Key", () => {
+    const q = buildUpdateServerPropertyQuery("xp_rate", "2.0");
+    expect(q.text).toBe("UPDATE ServerProperty SET Value = ? WHERE `Key` = ?");
+    expect(q.values).toEqual(["2.0", "xp_rate"]);
   });
 });
