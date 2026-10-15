@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { charactersApi, REALM_NAMES } from "../lib/api";
+import { charactersApi, className, raceName, REALM_NAMES } from "../lib/api";
 
 export function CharacterDetailPage() {
   const { name = "" } = useParams();
@@ -18,8 +18,8 @@ export function CharacterDetailPage() {
     ["Account", c.accountName],
     ["Realm", REALM_NAMES[c.realm] ?? c.realm],
     ["Level", c.level],
-    ["Class", c.class],
-    ["Race", c.race],
+    ["Class", className(c.class)],
+    ["Race", raceName(c.race)],
     ["Realm level", c.realmLevel],
     ["Realm points", c.realmPoints],
     ["Account slot", c.accountSlot],
@@ -57,9 +57,7 @@ export function CharacterDetailPage() {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-slate-400">
-        Read-only in the MVP. Class/race are shown as raw IDs; name mapping is a later enhancement.
-      </p>
+      <p className="text-xs text-slate-400">Read-only in the MVP.</p>
     </div>
   );
 }

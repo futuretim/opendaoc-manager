@@ -1,11 +1,11 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 
 /**
- * Minimal cookie-based session for the M0 scaffold.
+ * Cookie-backed, server-side session.
  *
- * The signed cookie carries the authenticated staff user id. This is a
- * stateless stub; M1 will back sessions with the `session` table (see
- * migrations/001_init.sql) so they can be revoked and expired server-side.
+ * The signed cookie carries an opaque session id; the authoritative session
+ * state lives in the `session` table (see db/sessions.ts), which makes
+ * sessions revocable (logout, deactivation, password change).
  */
 export const SESSION_COOKIE = "odm_session";
 
@@ -17,10 +17,10 @@ export interface AuthUser {
   role: Role;
 }
 
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 8; // 8 hours
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 8; // keep cookie lifetime in step with the row TTL
 
-export function setSessionCookie(reply: FastifyReply, userId: number): void {
-  reply.setCookie(SESSION_COOKIE, String(userId), {
+export function setSessionCookie(reply: FastifyReply, sessionId: string): void {
+  reply.setCookie(SESSION_COOKIE, sessionId, {
     path: "/",
     httpOnly: true,
     sameSite: "lax",
@@ -34,12 +34,11 @@ export function clearSessionCookie(reply: FastifyReply): void {
   reply.clearCookie(SESSION_COOKIE, { path: "/" });
 }
 
-/** Reads and verifies the signed session cookie, returning the user id or null. */
-export function readSessionUserId(request: FastifyRequest): number | null {
+/** Reads and verifies the signed session cookie, returning the session id. */
+export function readSessionId(request: FastifyRequest): string | null {
   const raw = request.cookies[SESSION_COOKIE];
   if (!raw) return null;
   const unsigned = request.unsignCookie(raw);
   if (!unsigned.valid || unsigned.value === null) return null;
-  const id = Number(unsigned.value);
-  return Number.isInteger(id) && id > 0 ? id : null;
+  return unsigned.value;
 }

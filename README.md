@@ -8,9 +8,10 @@ See **[docs/MVP_SPEC.md](docs/MVP_SPEC.md)** for the full specification.
 
 > **Status:** Core functionality implemented — **account management**
 > (search, detail, password reset, privilege/status/mute/warn/notes),
-> **bans** (create/list/lift), and **character inspection** (read-only), all
-> behind staff auth with an audit trail. The stats/overview dashboard is
-> deliberately deferred.
+> **bans** (create/list/lift), **character inspection** (read-only, with
+> class/race names), **staff management** and an **audit-log viewer**
+> (admin-only), all behind revocable server-side sessions. The stats/overview
+> dashboard is deliberately deferred.
 
 ## Architecture
 
@@ -93,9 +94,15 @@ Behind staff auth (`requireAuth`), under `/api/v1`:
   (read-only).
 - **Bans** — `GET /bans?type=`, `POST /bans` (type A/I/B, reason required),
   `DELETE /bans/:id` (lift).
+- **Staff (admin-only)** — `GET /staff`, `POST /staff` (create),
+  `PATCH /staff/:id` (role / activate-deactivate; changing access revokes the
+  user's sessions immediately; self-lockout is prevented).
+- **Audit (admin-only)** — `GET /audit?action=` (filterable, paginated).
 
-Every mutating action is written to the Manager `audit_log`. All game-DB writes
-are parameterized and column-scoped.
+Sessions are **server-side and revocable** (the signed cookie holds an opaque
+session id; state lives in the `session` table). Every mutating action is
+written to the Manager `audit_log`. All game-DB writes are parameterized and
+column-scoped.
 
 ## Docker
 

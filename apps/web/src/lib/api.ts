@@ -187,3 +187,144 @@ export const PRIV_LEVEL_NAMES: Record<number, string> = {
   2: "GM",
   3: "Admin",
 };
+
+/** DAoC race ids (OpenDAoC eRace). */
+export const RACE_NAMES: Record<number, string> = {
+  0: "Unknown",
+  1: "Briton",
+  2: "Avalonian",
+  3: "Highlander",
+  4: "Saracen",
+  5: "Norseman",
+  6: "Troll",
+  7: "Dwarf",
+  8: "Kobold",
+  9: "Celt",
+  10: "Firbolg",
+  11: "Elf",
+  12: "Lurikeen",
+  13: "Inconnu",
+  14: "Valkyn",
+  15: "Sylvan",
+  16: "Half Ogre",
+  17: "Frostalf",
+  18: "Shar",
+  19: "Minotaur",
+  20: "Minotaur",
+  21: "Minotaur",
+};
+
+/** DAoC class ids (OpenDAoC eCharacterClass). */
+export const CLASS_NAMES: Record<number, string> = {
+  0: "Unknown",
+  1: "Paladin",
+  2: "Armsman",
+  3: "Scout",
+  4: "Minstrel",
+  5: "Theurgist",
+  6: "Cleric",
+  7: "Wizard",
+  8: "Sorcerer",
+  9: "Infiltrator",
+  10: "Friar",
+  11: "Mercenary",
+  12: "Necromancer",
+  13: "Cabalist",
+  14: "Fighter",
+  15: "Elementalist",
+  16: "Acolyte",
+  17: "Albion Rogue",
+  18: "Mage",
+  19: "Reaver",
+  20: "Disciple",
+  21: "Thane",
+  22: "Warrior",
+  23: "Shadowblade",
+  24: "Skald",
+  25: "Hunter",
+  26: "Healer",
+  27: "Spiritmaster",
+  28: "Shaman",
+  29: "Runemaster",
+  30: "Bonedancer",
+  31: "Berserker",
+  32: "Savage",
+  33: "Heretic",
+  34: "Valkyrie",
+  35: "Viking",
+  36: "Mystic",
+  37: "Seer",
+  38: "Midgard Rogue",
+  39: "Bainshee",
+  40: "Eldritch",
+  41: "Enchanter",
+  42: "Mentalist",
+  43: "Blademaster",
+  44: "Hero",
+  45: "Champion",
+  46: "Warden",
+  47: "Druid",
+  48: "Bard",
+  49: "Nightshade",
+  50: "Ranger",
+  51: "Magician",
+  52: "Guardian",
+  53: "Naturalist",
+  54: "Stalker",
+  55: "Animist",
+  56: "Valewalker",
+  57: "Forester",
+  58: "Vampiir",
+  59: "Warlock",
+  60: "Mauler (Alb)",
+  61: "Mauler (Mid)",
+  62: "Mauler (Hib)",
+};
+
+export const className = (id: number): string => CLASS_NAMES[id] ?? `Class ${id}`;
+export const raceName = (id: number): string => RACE_NAMES[id] ?? `Race ${id}`;
+
+// --- Staff (admin-only) ----------------------------------------------------
+
+export interface StaffUser {
+  id: number;
+  email: string;
+  role: "admin" | "gm";
+  isActive: boolean;
+  createdAt: string | null;
+  lastLoginAt: string | null;
+}
+
+export const staffApi = {
+  list: () => apiFetch<{ items: StaffUser[] }>("/staff"),
+  create: (email: string, password: string, role: "admin" | "gm") =>
+    apiFetch<{ user: StaffUser }>("/staff", {
+      method: "POST",
+      body: JSON.stringify({ email, password, role }),
+    }),
+  update: (id: number, updates: { role?: "admin" | "gm"; isActive?: boolean }) =>
+    apiFetch<{ user: StaffUser }>(`/staff/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    }),
+};
+
+// --- Audit log (admin-only) ------------------------------------------------
+
+export interface AuditEntry {
+  id: number;
+  actorUserId: number | null;
+  actorEmail: string | null;
+  action: string;
+  target: string | null;
+  metadata: unknown | null;
+  ip: string | null;
+  createdAt: string | null;
+}
+
+export const auditApi = {
+  list: (params: { action?: string; page?: number } = {}) =>
+    apiFetch<{ items: AuditEntry[]; page: number; pageSize: number }>(
+      `/audit${qs({ action: params.action, page: params.page })}`,
+    ),
+};

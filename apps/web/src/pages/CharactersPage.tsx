@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { charactersApi, REALM_NAMES } from "../lib/api";
+import { charactersApi, className, REALM_NAMES } from "../lib/api";
 
 export function CharactersPage() {
   const [term, setTerm] = useState("");
@@ -54,6 +54,7 @@ export function CharactersPage() {
               <th className="px-4 py-2 font-medium">Name</th>
               <th className="px-4 py-2 font-medium">Account</th>
               <th className="px-4 py-2 font-medium">Level</th>
+              <th className="px-4 py-2 font-medium">Class</th>
               <th className="px-4 py-2 font-medium">Realm</th>
               <th className="px-4 py-2 font-medium">Last played</th>
             </tr>
@@ -72,13 +73,14 @@ export function CharactersPage() {
                   </Link>
                 </td>
                 <td className="px-4 py-2">{c.level}</td>
+                <td className="px-4 py-2">{className(c.class)}</td>
                 <td className="px-4 py-2">{REALM_NAMES[c.realm] ?? c.realm}</td>
                 <td className="px-4 py-2 text-slate-500">{c.lastPlayed ?? "—"}</td>
               </tr>
             ))}
             {items.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
                   {isFetching ? "Loading…" : "No characters found."}
                 </td>
               </tr>

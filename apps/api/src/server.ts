@@ -3,12 +3,14 @@ import cors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import Fastify, { type FastifyInstance } from "fastify";
 import { config, corsOrigins, type AppConfig } from "./config.js";
-import { requireAuth } from "./auth/guards.js";
+import { requireAuth, requireRole } from "./auth/guards.js";
 import { accountRoutes } from "./routes/accounts.js";
+import { auditRoutes } from "./routes/audit.js";
 import { authRoutes } from "./routes/auth.js";
 import { banRoutes } from "./routes/bans.js";
 import { characterRoutes } from "./routes/characters.js";
 import { healthRoutes } from "./routes/health.js";
+import { staffRoutes } from "./routes/staff.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -53,6 +55,13 @@ export async function buildServer(): Promise<FastifyInstance> {
         await accountRoutes(secure);
         await characterRoutes(secure);
         await banRoutes(secure);
+
+        // Admin-only: staff management + audit log.
+        await secure.register(async (admin) => {
+          admin.addHook("preHandler", requireRole("admin"));
+          await staffRoutes(admin);
+          await auditRoutes(admin);
+        });
       });
     },
     { prefix: "/api/v1" },

@@ -7,8 +7,14 @@ const NAV = [
   { to: "/bans", label: "Bans" },
 ];
 
+const ADMIN_NAV = [
+  { to: "/staff", label: "Staff" },
+  { to: "/audit", label: "Audit" },
+];
+
 export function Layout() {
   const { user, logout } = useAuth();
+  const nav = user?.role === "admin" ? [...NAV, ...ADMIN_NAV] : NAV;
 
   return (
     <div className="min-h-screen">
@@ -17,7 +23,7 @@ export function Layout() {
           <div className="flex items-center gap-6">
             <span className="font-semibold">OpenDAoC Manager</span>
             <nav className="flex gap-1">
-              {NAV.map((item) => (
+              {nav.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
