@@ -94,6 +94,8 @@ Behind staff auth (`requireAuth`), under `/api/v1`:
   (read-only).
 - **Quests** — `GET /quests?query=`, `GET /quests/:id` (read-only world
   content: `DataQuest`, with multi-step fields parsed for display).
+- **Items** — `GET /items?query=`, `GET /items/:idNb` (read-only world
+  content: `ItemTemplate`, grouped detail with DOL value conventions).
 - **Bans** — `GET /bans?type=`, `POST /bans` (type A/I/B, reason required),
   `DELETE /bans/:id` (lift).
 - **Staff (admin-only)** — `GET /staff`, `POST /staff` (create),

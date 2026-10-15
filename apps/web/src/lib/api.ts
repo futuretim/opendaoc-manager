@@ -374,3 +374,86 @@ export const questsApi = {
     ),
   get: (id: number) => apiFetch<{ quest: QuestDetail }>(`/quests/${id}`),
 };
+
+// --- Items (ItemTemplate, read-only) ---------------------------------------
+
+export interface ItemSummary {
+  idNb: string;
+  name: string;
+  level: number;
+  realm: number;
+  objectType: number;
+  itemType: number;
+  quality: number;
+  dpsAf: number;
+  spdAbs: number;
+}
+
+export interface ItemDetail extends ItemSummary {
+  description: string;
+  model: number;
+  weight: number;
+  hand: number;
+  typeDamage: number;
+  bonus: number;
+  bonusLevel: number;
+  extraBonus: number;
+  extraBonusType: number;
+  durability: number;
+  maxDurability: number;
+  condition: number;
+  maxCondition: number;
+  isIndestructible: boolean;
+  isNotLosingDur: boolean;
+  isPickable: boolean;
+  isDropable: boolean;
+  canDropAsLoot: boolean;
+  isTradable: boolean;
+  isStackable: boolean;
+  maxCount: number;
+  packSize: number;
+  price: number;
+  levelRequirement: number;
+  allowedClasses: string;
+  flags: number;
+  color: number;
+  emblem: number;
+  effect: number;
+  charges: number;
+  maxCharges: number;
+  charges1: number;
+  maxCharges1: number;
+  canUseEvery: number;
+  poisonSpellID: number;
+  poisonCharges: number;
+  poisonMaxCharges: number;
+  packageID: string;
+  classType: string;
+  salvageYieldID: number;
+}
+
+export const itemsApi = {
+  search: (query: string, page = 1) =>
+    apiFetch<{ items: ItemSummary[]; page: number; pageSize: number }>(
+      `/items${qs({ query, page })}`,
+    ),
+  get: (idNb: string) => apiFetch<{ item: ItemDetail }>(`/items/${encodeURIComponent(idNb)}`),
+};
+
+/** Format a copper price into DAoC platinum/gold/silver/copper. */
+export function formatMoney(copperTotal: number): string {
+  if (!copperTotal || copperTotal <= 0) return "0c";
+  let c = Math.floor(copperTotal);
+  const plat = Math.floor(c / 10_000_000);
+  c %= 10_000_000;
+  const gold = Math.floor(c / 10_000);
+  c %= 10_000;
+  const silver = Math.floor(c / 100);
+  const copper = c % 100;
+  const parts: string[] = [];
+  if (plat) parts.push(`${plat}p`);
+  if (gold) parts.push(`${gold}g`);
+  if (silver) parts.push(`${silver}s`);
+  if (copper) parts.push(`${copper}c`);
+  return parts.join(" ") || "0c";
+}

@@ -17,6 +17,7 @@ import {
   buildSearchCharactersQuery,
 } from "./characters.js";
 import { buildGetQuestQuery, buildSearchQuestsQuery } from "./quests.js";
+import { buildGetItemQuery, buildSearchItemsQuery } from "./items.js";
 
 describe("account query builders", () => {
   it("searches by name/discord with LIKE params", () => {
@@ -129,5 +130,21 @@ describe("quest query builders", () => {
     const q = buildGetQuestQuery(42);
     expect(q.text).toMatch(/WHERE ID = \? LIMIT 1$/);
     expect(q.values).toEqual([42]);
+  });
+});
+
+describe("item query builders", () => {
+  it("searches by name/id_nb with LIKE", () => {
+    const q = buildSearchItemsQuery({ q: "sword", limit: 25, offset: 0 });
+    expect(q.text).toContain("FROM ItemTemplate");
+    expect(q.text).toContain("WHERE Name LIKE ? OR Id_nb LIKE ?");
+    expect(q.values).toEqual(["%sword%", "%sword%", 25, 0]);
+  });
+
+  it("escapes the reserved Condition column with backticks", () => {
+    const q = buildGetItemQuery("my_item");
+    expect(q.text).toContain("`Condition`");
+    expect(q.text).toMatch(/WHERE Id_nb = \? LIMIT 1$/);
+    expect(q.values).toEqual(["my_item"]);
   });
 });

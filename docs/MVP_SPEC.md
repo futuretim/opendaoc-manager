@@ -538,9 +538,10 @@ game-content toolset**. This section catalogues it as a roadmap.
 > The dashboard/server-status work (M1, incl. `serverstats`) is intentionally
 > deferred in favor of functionality. Since then: real session store,
 > staff-user management UI, and audit-log viewer are done; and the first slice
-> of **world content** (§11 Phase 4) — a read-only **Quests** (`DataQuest`)
-> browser with multi-step parsing — is in. Remaining: content editing, more
-> content domains (items/mobs/loot), and the dashboard.
+> of **world content** (§11 Phase 4) — read-only browsers for **Quests**
+> (`DataQuest`, multi-step parsing) and **Items** (`ItemTemplate`, grouped
+> detail) — is in. Remaining: content editing, more content domains
+> (mobs/NPCs, loot, merchants, spells), and the dashboard.
 
 1. **M0 — Scaffolding:** Vite SPA + Fastify API skeleton, shared TS config, Docker,
    DB connection to game DB verified, Manager DB migrations, auth stub.
