@@ -1,0 +1,62 @@
+# Local/production compose for OpenDAoC Manager.
+#
+# The OpenDAoC GAME database is treated as EXTERNAL — point GAME_DB_* at your
+# live server's MySQL/MariaDB. The `manager-db` service below is this app's OWN
+# database (staff users, audit log). Copy .env.example to .env first.
+
+services:
+  manager-db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${MANAGER_DB_NAME:-opendaoc_manager}
+      MARIADB_USER: ${MANAGER_DB_USER:-opendaoc_manager}
+      MARIADB_PASSWORD: ${MANAGER_DB_PASSWORD:-manager}
+      MARIADB_ROOT_PASSWORD: ${MANAGER_DB_ROOT_PASSWORD:-root}
+    volumes:
+      - manager-db-data:/var/lib/mysql
+    ports:
+      - "3307:3306"
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - manager-db
+    environment:
+      NODE_ENV: production
+      API_PORT: 4000
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # External game DB:
+      GAME_DB_HOST: ${GAME_DB_HOST:?set GAME_DB_HOST in .env}
+      GAME_DB_PORT: ${GAME_DB_PORT:-3306}
+      GAME_DB_USER: ${GAME_DB_USER}
+      GAME_DB_PASSWORD: ${GAME_DB_PASSWORD}
+      GAME_DB_NAME: ${GAME_DB_NAME:-opendaoc}
+      # Manager DB (this compose's service):
+      MANAGER_DB_HOST: manager-db
+      MANAGER_DB_PORT: 3306
+      MANAGER_DB_USER: ${MANAGER_DB_USER:-opendaoc_manager}
+      MANAGER_DB_PASSWORD: ${MANAGER_DB_PASSWORD:-manager}
+      MANAGER_DB_NAME: ${MANAGER_DB_NAME:-opendaoc_manager}
+    ports:
+      - "4000:4000"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api/v1}
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  manager-db-data:
