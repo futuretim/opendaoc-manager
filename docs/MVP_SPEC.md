@@ -1,6 +1,6 @@
 # OpenDAoC Manager — MVP Specification
 
-> Status: **Draft v0.2** · Last updated: 2026-10-15
+> Status: **Draft v0.3** · Last updated: 2026-10-15
 >
 > This document defines the Minimum Viable Product for **OpenDAoC Manager**, an
 > admin/GM-facing web console for operating an OpenDAoC game server. It is the
@@ -208,6 +208,19 @@ audit log.*
 `Account`, `Name` (character), `Severity`, `Status`, `Timestamp`, `Text`.
 *Candidate for a post-MVP "support queue" feature (§11).*
 
+**`ServerProperty`** (`DbServerProperty`, `TableName="ServerProperty"`) — the
+server's tunable settings as key/value rows: `Category`, `Key`, `Description`,
+`DefaultValue`, `Value`. **Read-only in MVP** (dashboard config viewer, §6.2);
+editing is deferred (changing a live property can affect every player and some
+values are cached in-process — see §11).
+
+**`serverstats`** (`DbServerStat`, `TableName="serverstats"`) — periodic
+server-health snapshots the game server writes itself: `StatDate`, `Clients`
+(online player count), `AlbionPlayers`/`MidgardPlayers`/`HiberniaPlayers`, `CPU`,
+`Memory`, `Upload`, `Download`. **Read-only**; the dashboard reads the most recent
+row(s) (§6.2). *Note: these are snapshots on the server's own cadence, not a live
+feed — surface `StatDate` so staleness is visible.*
+
 > ⚠️ All writes to the game DB are **narrow and column-scoped** (e.g. update only
 > `Password`, only `PrivLevel`, insert/delete a `Ban` row). No schema changes, no
 > bulk SQL from the UI.
@@ -257,9 +270,16 @@ ship in MVP, **P1** = ship if time allows. Operations map to the server's existi
     active bans.
   - "Recently logged-in accounts" (by `LastLogin`) and "recently active
     characters" (by `LastPlayed`) lists.
-  - *(P1)* Online-player count: **no reliable out-of-process source confirmed**
-    (the server tracks clients in-memory). Omit unless/until a source exists
-    (status endpoint, heartbeat row) — do not show a misleading number (§10).
+  - **Online players & realm balance (P0):** read the latest **`serverstats`**
+    row for `Clients` and per-realm counts
+    (`AlbionPlayers`/`MidgardPlayers`/`HiberniaPlayers`), plus CPU/memory. Show
+    `StatDate` and flag the figure as **stale** if the latest snapshot is older
+    than a threshold (so a down/stalled server is obvious rather than showing a
+    frozen count). *(P1)* a small sparkline of `Clients` over recent rows.
+  - **Server properties viewer (P1, read-only):** browse **`ServerProperty`**
+    rows grouped by `Category`, showing `Key`, current `Value`, `DefaultValue`,
+    and `Description`; highlight values that differ from their default. No editing
+    in MVP (§11).
 
 ### 6.3 Epic: Account management (P0)
 - *As a staff member, I search accounts and view full detail.*
@@ -347,6 +367,8 @@ server-side with zod.
 | `PATCH`| `/staff/:id` | admin | Update role / deactivate |
 | `GET`  | `/audit?filters` | admin | Read Manager audit log |
 | `GET`  | `/server-audit?filters` | admin | *(P1)* Read server `AuditEntry` log |
+| `GET`  | `/server/stats?limit=` | any | Latest `serverstats` snapshot(s) for dashboard |
+| `GET`  | `/server/properties` | any | *(P1)* Read-only `ServerProperty` rows (grouped) |
 
 Conventions: cursor/offset pagination with a capped page size; consistent error
 envelope `{ error: { code, message } }`; `401`/`403` distinguish auth vs authz.
@@ -376,7 +398,8 @@ envelope `{ error: { code, message } }`; `401`/`403` distinguish auth vs authz.
 7. **Rate limiting** on login and on expensive search endpoints.
 8. **Audit everything** that mutates game or manager data.
 9. **Least privilege DB user** for the API where feasible (only the tables/columns
-   it needs: `Account`, `DOLCharacters`, `Ban`, read-only `AuditEntry`).
+   it needs: `Account`, `DOLCharacters`, `Ban`, read-only `AuditEntry`,
+   `serverstats`, `ServerProperty`).
 10. **Transport:** deploy behind TLS (reverse proxy), same as the Account
     Manager's Nginx/Caddy guidance.
 
@@ -411,11 +434,14 @@ envelope `{ error: { code, message } }`; `401`/`403` distinguish auth vs authz.
   login/connect, no restart; online players not retroactively affected (§4.4).
 - ✅ **Server has its own audit (`AuditEntry`) and appeals (`Appeal`) tables** —
   surfacing them is a P1/post-MVP opportunity.
+- ✅ **Online-player count source** — the server writes periodic **`serverstats`**
+  snapshots (`Clients` + per-realm counts, CPU/memory). The dashboard reads the
+  latest row (§6.2) with a staleness indicator; no in-process hook needed.
 
 **Still open (decisions / server-deploy specifics):**
-1. **Online-player / live status source:** the server holds client state
-   in-memory with no confirmed out-of-process read. Is there a status endpoint,
-   heartbeat row, or log we can use? Determines §6.2 P1.
+1. **`serverstats` cadence:** how often does this server write snapshots? Sets the
+   dashboard's staleness threshold. (If snapshots are sparse, the online count is
+   coarse — acceptable for MVP.)
 2. **Staff login method:** email+password vs Discord OAuth (+ staff Discord-ID
    allow-list) as the Account Manager uses.
 3. **`DiscordName` column presence:** exists only if this server ran the Account
@@ -424,18 +450,83 @@ envelope `{ error: { code, message } }`; `401`/`403` distinguish auth vs authz.
 5. **Online-player kick/mute-now:** MVP changes take effect next login; is a
    "disconnect now" capability needed (would require an in-process hook that does
    not exist today)?
+6. **Content-edit cache reloads (future phases):** editing world content
+   (§11) will need the server's content-reload mechanism; some tables are cached
+   in-process and won't pick up DB edits without a reload/restart. To be mapped
+   per-domain when that phase is specced.
 
 ---
 
-## 11. Explicitly out of scope for MVP (candidate next phases)
-- Game-server process control (start/stop/restart), config editing, live log
-  tailing.
-- Real-time/in-game actions (message/kick online players, world state).
-- Character edit/delete/move (destructive; needs strong guardrails).
-- **Appeals/support queue** surfaced from the `Appeal` table.
-- Multi-server management.
-- Advanced RBAC, per-action permissions.
-- Analytics/reporting dashboards beyond basic counts.
+## 11. Out of scope for MVP & future phases
+
+The OpenDAoC database defines **~101 tables**. The MVP touches only the
+**player-operations** slice (§6). The rest is real, valuable management surface
+but belongs to later phases — much of it amounts to a full **web-based GM /
+game-content toolset**. This section catalogues it as a roadmap.
+
+> ⚠️ **Cross-cutting caveat for all content phases:** world-content tables are
+> wide, heavily cross-referenced (items ↔ loot ↔ mobs ↔ merchants, spells ↔
+> lines ↔ styles ↔ specs), and several are **cached in-process** by the running
+> server — edits won't take effect without the server's content-reload/restart.
+> Each phase below must map its reload path and referential-integrity rules
+> before implementation, and edits must be heavily validated and audited. These
+> are **not** simple CRUD screens.
+
+### Near-term, low-risk (small tables, high leverage) — Phase 1
+- **Appeals / support queue** — `Appeal` (view, triage, resolve player appeals).
+- **Bug reports** — `BugReport`.
+- **News** — `News` (login/MOTD news entries).
+- **Server properties editor** — `ServerProperty` (MVP ships read-only; editing
+  with validation + reload is the natural first *write* extension).
+
+### Player data (destructive — strong guardrails) — Phase 2
+- **Character admin** — delete / move / rename characters
+  (`/account deletecharacter`, `/account movecharacter`); `DOLCharacters`,
+  `DOLCharactersBackup`.
+- **Inventory / items on a character** — `Inventory`, `ItemUnique`.
+- **Character effects, bind points, boats** — `PlayerXEffect`, `BindPoint`,
+  `PlayerBoats`.
+
+### Social systems — Phase 3
+- **Guilds** — `Guild`, `GuildRank`, `GuildAlliance` (rename, disband, membership,
+  emblem, leadership).
+- **Housing** — `DBHouse`, `DBHousePermissions`, `DBHouseCharsXPerms`,
+  `DBIndoorItem`/`DBOutdoorItem`, hookpoint tables, `Gravestone`.
+
+### World content editor ("GM toolset") — Phase 4 (large)
+- **NPCs / mobs** — `Mob` (per-spawn, ~45 cols), `NpcTemplate` (~42 cols),
+  `NPCEquipment`, `MobXAmbientBehaviour`.
+- **Items** — `ItemTemplate` (~77 cols), `ItemUnique`, `Artifact` +
+  `ArtifactBonus`/`ArtifactXItem`, `CraftedItem`/`CraftedXItem`,
+  `Salvage`/`SalvageYield`.
+- **Loot** — `LootTemplate`, `LootGenerator`, `LootOTD`, `MobDropTemplate`,
+  `MobXLootTemplate`, `DropTemplateXItemTemplate`.
+- **Quests & tasks** — `DataQuest` (~29 cols, the data-driven quest system),
+  `Task`, `CharacterXDataQuest`.
+- **Merchants** — `MerchantItem`, `HouseConsignmentMerchant`.
+- **Spells & abilities** — `Spell` (~41 cols), `SpellLine`, `LineXSpell`,
+  `SpellXCustomValues`, `Style`, `StyleXSpell`, `Ability`, `Specialization`,
+  `SpecXAbility`, `ClassXSpecialization`, `ClassXRealmAbility_Atlas`.
+- **World geography** — `Zones`, `Regions`, `Area`, `Teleport`, `ZonePoint`,
+  `Door`, `Path`/`PathPoints`, `WorldObject`, `Battleground`, `InstanceXElement`.
+
+### RvR / realm systems — Phase 5
+- **Keeps** — `Keep`, `KeepComponent`, `KeepHookPoint`/`KeepHookPointItem`,
+  `KeepPosition`, `KeepCaptureLog`, `Keepdoorteleport`.
+- **Relics & factions** — `Relic`, `Minotaurrelic`, `Faction`,
+  `FactionAggroLevel`, `LinkedFaction`.
+
+### Localization — Phase 6
+- `LanguageNPC`, `LanguageZone`, `LanguageArea`, `LanguageSystem`,
+  `LanguageGameObject`.
+
+### Not planned (operational concerns better handled elsewhere)
+- Game-server **process control** (start/stop/restart), config *files*, live log
+  tailing — infra/ops tooling, not this app.
+- **Real-time in-game actions** against online players (live kick, world state,
+  in-game messaging) — needs an in-process hook that does not exist today.
+- **Multi-server** management; advanced per-action **RBAC**; heavy
+  analytics/reporting beyond the dashboard.
 
 ---
 
@@ -443,12 +534,14 @@ envelope `{ error: { code, message } }`; `401`/`403` distinguish auth vs authz.
 
 1. **M0 — Scaffolding:** Vite SPA + Fastify API skeleton, shared TS config, Docker,
    DB connection to game DB verified, Manager DB migrations, auth stub.
-2. **M1 — Auth + Dashboard:** staff login/session, `/dashboard/summary`, health.
+2. **M1 — Auth + Dashboard:** staff login/session, `/dashboard/summary`, health,
+   `serverstats`-based online/realm panel.
 3. **M2 — Accounts:** search, detail, password reset (with hash tests vs real
    DB values), priv-level/status/mute/warn edits.
 4. **M3 — Characters:** search + detail (read-only).
 5. **M4 — Bans + Staff/Audit:** ban create/list/lift against the `Ban` table;
-   Manager audit log viewer and staff management; (P1) server `AuditEntry` view.
+   Manager audit log viewer and staff management; (P1) server `AuditEntry` view
+   and read-only `ServerProperty` viewer.
 6. **M5 — Hardening:** rate limiting, CSRF, polish, docs, deploy.
 
 ---
