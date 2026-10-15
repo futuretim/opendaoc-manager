@@ -20,6 +20,12 @@ import { buildGetQuestQuery, buildSearchQuestsQuery } from "./quests.js";
 import { buildGetItemQuery, buildSearchItemsQuery } from "./items.js";
 import { buildGetMobQuery, buildSearchMobsQuery } from "./mobs.js";
 import { buildGetNpcTemplateQuery, buildSearchNpcTemplatesQuery } from "./npcTemplates.js";
+import {
+  buildListLootTemplatesQuery,
+  buildLootEntriesQuery,
+  buildMobsForLootTemplateQuery,
+} from "./loot.js";
+import { buildListMerchantListsQuery, buildMerchantEntriesQuery } from "./merchants.js";
 
 describe("account query builders", () => {
   it("searches by name/discord with LIKE params", () => {
@@ -181,5 +187,42 @@ describe("npc template query builders", () => {
     const q = buildGetNpcTemplateQuery(7);
     expect(q.text).toMatch(/WHERE TemplateId = \? LIMIT 1$/);
     expect(q.values).toEqual([7]);
+  });
+});
+
+describe("loot query builders", () => {
+  it("groups loot templates by name with entry counts", () => {
+    const q = buildListLootTemplatesQuery({ q: "dragon", limit: 25, offset: 0 });
+    expect(q.text).toContain("COUNT(*) AS entries FROM LootTemplate");
+    expect(q.text).toContain("GROUP BY TemplateName");
+    expect(q.values).toEqual(["%dragon%", "%dragon%", 25, 0]);
+  });
+
+  it("joins ItemTemplate for entry names and lists dropping mobs", () => {
+    const entries = buildLootEntriesQuery("dragon_loot");
+    expect(entries.text).toContain("LEFT JOIN ItemTemplate it ON it.Id_nb = lt.ItemTemplateID");
+    expect(entries.text).toContain("WHERE lt.TemplateName = ?");
+    expect(entries.values).toEqual(["dragon_loot"]);
+
+    const mobs = buildMobsForLootTemplateQuery("dragon_loot");
+    expect(mobs.text).toContain("FROM MobXLootTemplate");
+    expect(mobs.text).toContain("WHERE LootTemplateName = ?");
+    expect(mobs.values).toEqual(["dragon_loot"]);
+  });
+});
+
+describe("merchant query builders", () => {
+  it("groups merchant lists by ItemListID", () => {
+    const q = buildListMerchantListsQuery({ limit: 25, offset: 0 });
+    expect(q.text).toContain("COUNT(*) AS entries FROM MerchantItem");
+    expect(q.text).toContain("GROUP BY ItemListID");
+    expect(q.values).toEqual([25, 0]);
+  });
+
+  it("joins ItemTemplate and orders entries by page/slot", () => {
+    const q = buildMerchantEntriesQuery(" albion_weapons");
+    expect(q.text).toContain("LEFT JOIN ItemTemplate it ON it.Id_nb = mi.ItemTemplateID");
+    expect(q.text).toContain("ORDER BY mi.PageNumber ASC, mi.SlotPosition ASC");
+    expect(q.values).toEqual([" albion_weapons"]);
   });
 });

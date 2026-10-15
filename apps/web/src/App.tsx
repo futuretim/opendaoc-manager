@@ -11,7 +11,11 @@ import { CharacterDetailPage } from "./pages/CharacterDetailPage";
 import { CharactersPage } from "./pages/CharactersPage";
 import { ItemDetailPage } from "./pages/ItemDetailPage";
 import { ItemsPage } from "./pages/ItemsPage";
+import { LootTemplateDetailPage } from "./pages/LootTemplateDetailPage";
+import { LootTemplatesPage } from "./pages/LootTemplatesPage";
 import { LoginPage } from "./pages/LoginPage";
+import { MerchantListDetailPage } from "./pages/MerchantListDetailPage";
+import { MerchantListsPage } from "./pages/MerchantListsPage";
 import { MobDetailPage } from "./pages/MobDetailPage";
 import { MobsPage } from "./pages/MobsPage";
 import { NpcTemplateDetailPage } from "./pages/NpcTemplateDetailPage";
@@ -41,6 +45,10 @@ export default function App() {
               <Route path="/mobs/:id" element={<MobDetailPage />} />
               <Route path="/npc-templates" element={<NpcTemplatesPage />} />
               <Route path="/npc-templates/:templateId" element={<NpcTemplateDetailPage />} />
+              <Route path="/loot-templates" element={<LootTemplatesPage />} />
+              <Route path="/loot-templates/:name" element={<LootTemplateDetailPage />} />
+              <Route path="/merchant-lists" element={<MerchantListsPage />} />
+              <Route path="/merchant-lists/:id" element={<MerchantListDetailPage />} />
               <Route path="/bans" element={<BansPage />} />
               <Route element={<AdminRoute />}>
                 <Route path="/staff" element={<StaffPage />} />

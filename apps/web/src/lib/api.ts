@@ -551,6 +551,61 @@ export const npcTemplatesApi = {
     apiFetch<{ template: NpcTemplateDetail }>(`/npc-templates/${templateId}`),
 };
 
+// --- Loot & merchants (read-only) ------------------------------------------
+
+export interface LootTemplateSummary {
+  name: string;
+  entries: number;
+}
+export interface LootEntry {
+  itemTemplateID: string;
+  itemName: string | null;
+  chance: number;
+  count: number;
+}
+export interface LootMobRef {
+  mobName: string;
+  dropCount: number;
+}
+export interface LootTemplateDetail {
+  name: string;
+  entries: LootEntry[];
+  mobs: LootMobRef[];
+}
+
+export interface MerchantListSummary {
+  id: string;
+  entries: number;
+}
+export interface MerchantEntry {
+  itemTemplateID: string;
+  itemName: string | null;
+  pageNumber: number;
+  slotPosition: number;
+}
+export interface MerchantListDetail {
+  id: string;
+  entries: MerchantEntry[];
+}
+
+export const lootApi = {
+  search: (query: string, page = 1) =>
+    apiFetch<{ items: LootTemplateSummary[]; page: number; pageSize: number }>(
+      `/loot-templates${qs({ query, page })}`,
+    ),
+  get: (name: string) =>
+    apiFetch<{ template: LootTemplateDetail }>(`/loot-templates/${encodeURIComponent(name)}`),
+};
+
+export const merchantsApi = {
+  search: (query: string, page = 1) =>
+    apiFetch<{ items: MerchantListSummary[]; page: number; pageSize: number }>(
+      `/merchant-lists${qs({ query, page })}`,
+    ),
+  get: (id: string) =>
+    apiFetch<{ list: MerchantListDetail }>(`/merchant-lists/${encodeURIComponent(id)}`),
+};
+
 /** Format a copper price into DAoC platinum/gold/silver/copper. */
 export function formatMoney(copperTotal: number): string {
   if (!copperTotal || copperTotal <= 0) return "0c";

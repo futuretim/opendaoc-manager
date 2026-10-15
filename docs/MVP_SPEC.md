@@ -540,9 +540,11 @@ game-content toolset**. This section catalogues it as a roadmap.
 > staff-user management UI, and audit-log viewer are done; and the first slice
 > of **world content** (§11 Phase 4) — read-only browsers for **Quests**
 > (`DataQuest`, multi-step parsing), **Items** (`ItemTemplate`, grouped
-> detail), **Mobs** (`Mob` spawns) and **NPC templates** (`NpcTemplate`,
-> cross-linked from mobs) — is in. Remaining: content editing, more content
-> domains (loot, merchants, spells), and the dashboard.
+> detail), **Mobs** (`Mob` spawns), **NPC templates** (`NpcTemplate`,
+> cross-linked from mobs), **Loot templates** (`LootTemplate` + `MobXLootTemplate`)
+> and **Merchant lists** (`MerchantItem`) — is in, with loot/merchant entries
+> cross-linked to the Items browser. Remaining: content editing, remaining
+> domains (spells/styles, geography), and the dashboard.
 
 1. **M0 — Scaffolding:** Vite SPA + Fastify API skeleton, shared TS config, Docker,
    DB connection to game DB verified, Manager DB migrations, auth stub.

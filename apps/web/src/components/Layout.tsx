@@ -8,6 +8,8 @@ const NAV = [
   { to: "/items", label: "Items" },
   { to: "/mobs", label: "Mobs" },
   { to: "/npc-templates", label: "Templates" },
+  { to: "/loot-templates", label: "Loot" },
+  { to: "/merchant-lists", label: "Merchants" },
   { to: "/bans", label: "Bans" },
 ];
 

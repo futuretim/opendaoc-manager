@@ -100,6 +100,11 @@ Behind staff auth (`requireAuth`), under `/api/v1`:
   location, stats, behavior; links to its NPC template).
 - **NPC templates** — `GET /npc-templates?query=`, `GET /npc-templates/:templateId`
   (read-only `NpcTemplate`).
+- **Loot templates** — `GET /loot-templates?query=`, `GET /loot-templates/:name`
+  (read-only `LootTemplate` grouped by name; item entries joined to item names
+  and the mobs that drop them via `MobXLootTemplate`).
+- **Merchant lists** — `GET /merchant-lists?query=`, `GET /merchant-lists/:id`
+  (read-only `MerchantItem` grouped by list, joined to item names).
 - **Bans** — `GET /bans?type=`, `POST /bans` (type A/I/B, reason required),
   `DELETE /bans/:id` (lift).
 - **Staff (admin-only)** — `GET /staff`, `POST /staff` (create),
