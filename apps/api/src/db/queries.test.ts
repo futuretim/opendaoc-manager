@@ -26,6 +26,8 @@ import {
   buildMobsForLootTemplateQuery,
 } from "./loot.js";
 import { buildListMerchantListsQuery, buildMerchantEntriesQuery } from "./merchants.js";
+import { buildGetSpellQuery, buildSearchSpellsQuery } from "./spells.js";
+import { buildGetStyleQuery, buildSearchStylesQuery } from "./styles.js";
 
 describe("account query builders", () => {
   it("searches by name/discord with LIKE params", () => {
@@ -224,5 +226,34 @@ describe("merchant query builders", () => {
     expect(q.text).toContain("LEFT JOIN ItemTemplate it ON it.Id_nb = mi.ItemTemplateID");
     expect(q.text).toContain("ORDER BY mi.PageNumber ASC, mi.SlotPosition ASC");
     expect(q.values).toEqual([" albion_weapons"]);
+  });
+});
+
+describe("spell query builders", () => {
+  it("searches by name or numeric SpellID and escapes reserved Range", () => {
+    const q = buildSearchSpellsQuery({ q: "123", limit: 25, offset: 0 });
+    expect(q.text).toContain("`Range`");
+    expect(q.text).toContain("WHERE Name LIKE ? OR SpellID = ?");
+    expect(q.values).toEqual(["%123%", 123, 25, 0]);
+  });
+
+  it("fetches a spell by SpellID", () => {
+    const q = buildGetSpellQuery(99);
+    expect(q.text).toMatch(/WHERE SpellID = \? LIMIT 1$/);
+    expect(q.values).toEqual([99]);
+  });
+});
+
+describe("style query builders", () => {
+  it("searches by name or spec key", () => {
+    const q = buildSearchStylesQuery({ q: "taunt", limit: 25, offset: 0 });
+    expect(q.text).toContain("WHERE Name LIKE ? OR SpecKeyName LIKE ?");
+    expect(q.values).toEqual(["%taunt%", "%taunt%", 25, 0]);
+  });
+
+  it("fetches a style by StyleID", () => {
+    const q = buildGetStyleQuery(5);
+    expect(q.text).toMatch(/WHERE StyleID = \? LIMIT 1$/);
+    expect(q.values).toEqual([5]);
   });
 });

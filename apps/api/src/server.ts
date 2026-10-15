@@ -4,6 +4,7 @@ import rateLimit from "@fastify/rate-limit";
 import Fastify, { type FastifyInstance } from "fastify";
 import { config, corsOrigins, type AppConfig } from "./config.js";
 import { requireAuth, requireRole } from "./auth/guards.js";
+import { abilityRoutes } from "./routes/abilities.js";
 import { accountRoutes } from "./routes/accounts.js";
 import { auditRoutes } from "./routes/audit.js";
 import { authRoutes } from "./routes/auth.js";
@@ -63,6 +64,7 @@ export async function buildServer(): Promise<FastifyInstance> {
         await itemRoutes(secure);
         await npcRoutes(secure);
         await economyRoutes(secure);
+        await abilityRoutes(secure);
 
         // Admin-only: staff management + audit log.
         await secure.register(async (admin) => {

@@ -105,6 +105,10 @@ Behind staff auth (`requireAuth`), under `/api/v1`:
   and the mobs that drop them via `MobXLootTemplate`).
 - **Merchant lists** — `GET /merchant-lists?query=`, `GET /merchant-lists/:id`
   (read-only `MerchantItem` grouped by list, joined to item names).
+- **Spells** — `GET /spells?query=`, `GET /spells/:id` (read-only `Spell`).
+- **Styles** — `GET /styles?query=`, `GET /styles/:id` (read-only `Style`).
+
+World-content pages are grouped under a **World** menu in the nav.
 - **Bans** — `GET /bans?type=`, `POST /bans` (type A/I/B, reason required),
   `DELETE /bans/:id` (lift).
 - **Staff (admin-only)** — `GET /staff`, `POST /staff` (create),

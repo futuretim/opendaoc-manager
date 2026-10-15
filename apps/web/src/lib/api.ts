@@ -606,6 +606,96 @@ export const merchantsApi = {
     apiFetch<{ list: MerchantListDetail }>(`/merchant-lists/${encodeURIComponent(id)}`),
 };
 
+// --- Spells & styles (read-only) -------------------------------------------
+
+export interface SpellSummary {
+  spellID: number;
+  name: string;
+  type: string;
+  target: string;
+  damage: number;
+  damageType: number;
+  range: number;
+  power: number;
+  castTime: number;
+}
+
+export interface SpellDetail extends SpellSummary {
+  description: string;
+  clientEffect: number;
+  icon: number;
+  tooltipId: number;
+  radius: number;
+  duration: number;
+  frequency: number;
+  pulse: number;
+  pulsePower: number;
+  concentration: number;
+  recastDelay: number;
+  uninterruptible: boolean;
+  moveCast: boolean;
+  instrumentRequirement: number;
+  value: number;
+  lifeDrainReturn: number;
+  amnesiaChance: number;
+  resurrectHealth: number;
+  resurrectMana: number;
+  spellGroup: number;
+  effectGroup: number;
+  subSpellID: number;
+  sharedTimerGroup: number;
+  isPrimary: boolean;
+  isSecondary: boolean;
+  isFocus: boolean;
+  allowBolt: boolean;
+  message1: string;
+  message2: string;
+  message3: string;
+  message4: string;
+  packageID: string;
+}
+
+export interface StyleSummary {
+  styleID: number;
+  name: string;
+  classId: number;
+  specKeyName: string;
+  specLevelRequirement: number;
+}
+
+export interface StyleDetail extends StyleSummary {
+  icon: number;
+  enduranceCost: number;
+  stealthRequirement: boolean;
+  openingRequirementType: number;
+  openingRequirementValue: number;
+  attackResultRequirement: number;
+  weaponTypeRequirement: number;
+  growthOffset: number;
+  growthRate: number;
+  bonusToHit: number;
+  bonusToDefense: number;
+  twoHandAnimation: number;
+  randomProc: boolean;
+  armorHitLocation: number;
+}
+
+export const spellsApi = {
+  search: (query: string, page = 1) =>
+    apiFetch<{ items: SpellSummary[]; page: number; pageSize: number }>(
+      `/spells${qs({ query, page })}`,
+    ),
+  get: (id: number) => apiFetch<{ spell: SpellDetail }>(`/spells/${id}`),
+};
+
+export const stylesApi = {
+  search: (query: string, page = 1) =>
+    apiFetch<{ items: StyleSummary[]; page: number; pageSize: number }>(
+      `/styles${qs({ query, page })}`,
+    ),
+  get: (id: number) => apiFetch<{ style: StyleDetail }>(`/styles/${id}`),
+};
+
 /** Format a copper price into DAoC platinum/gold/silver/copper. */
 export function formatMoney(copperTotal: number): string {
   if (!copperTotal || copperTotal <= 0) return "0c";

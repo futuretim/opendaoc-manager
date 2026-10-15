@@ -22,7 +22,11 @@ import { NpcTemplateDetailPage } from "./pages/NpcTemplateDetailPage";
 import { NpcTemplatesPage } from "./pages/NpcTemplatesPage";
 import { QuestDetailPage } from "./pages/QuestDetailPage";
 import { QuestsPage } from "./pages/QuestsPage";
+import { SpellDetailPage } from "./pages/SpellDetailPage";
+import { SpellsPage } from "./pages/SpellsPage";
 import { StaffPage } from "./pages/StaffPage";
+import { StyleDetailPage } from "./pages/StyleDetailPage";
+import { StylesPage } from "./pages/StylesPage";
 
 export default function App() {
   return (
@@ -49,6 +53,10 @@ export default function App() {
               <Route path="/loot-templates/:name" element={<LootTemplateDetailPage />} />
               <Route path="/merchant-lists" element={<MerchantListsPage />} />
               <Route path="/merchant-lists/:id" element={<MerchantListDetailPage />} />
+              <Route path="/spells" element={<SpellsPage />} />
+              <Route path="/spells/:id" element={<SpellDetailPage />} />
+              <Route path="/styles" element={<StylesPage />} />
+              <Route path="/styles/:id" element={<StyleDetailPage />} />
               <Route path="/bans" element={<BansPage />} />
               <Route element={<AdminRoute />}>
                 <Route path="/staff" element={<StaffPage />} />
