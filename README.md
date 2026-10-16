@@ -94,8 +94,11 @@ Behind staff auth (`requireAuth`), under `/api/v1`:
   (read-only).
 - **Quests** — `GET /quests?query=`, `GET /quests/:id` (read-only world
   content: `DataQuest`, with multi-step fields parsed for display).
-- **Items** — `GET /items?query=`, `GET /items/:idNb` (read-only world
-  content: `ItemTemplate`, grouped detail with DOL value conventions).
+- **Items** — `GET /items?query=`, `GET /items/:idNb` (grouped detail with DOL
+  value conventions); **`POST /items`** (create) and **`PATCH /items/:idNb`**
+  (edit) are **admin-only, editable** — column-scoped to the submitted fields,
+  validated and audited. The field set is one shared definition driving the DB
+  write layer, API validation, and the form.
 - **Mobs** — `GET /mobs?query=`, `GET /mobs/:id` (read-only `Mob` spawns:
   location, stats, behavior; links to its NPC template).
 - **NPC templates** — `GET /npc-templates?query=`, `GET /npc-templates/:templateId`

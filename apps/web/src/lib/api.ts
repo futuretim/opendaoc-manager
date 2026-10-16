@@ -430,7 +430,12 @@ export interface ItemDetail extends ItemSummary {
   packageID: string;
   classType: string;
   salvageYieldID: number;
+  examineArticle: string;
+  messageArticle: string;
+  allowUpdate: boolean;
 }
+
+export type ItemWrite = Record<string, string | number | boolean>;
 
 export const itemsApi = {
   search: (query: string, page = 1) =>
@@ -438,6 +443,16 @@ export const itemsApi = {
       `/items${qs({ query, page })}`,
     ),
   get: (idNb: string) => apiFetch<{ item: ItemDetail }>(`/items/${encodeURIComponent(idNb)}`),
+  update: (idNb: string, updates: ItemWrite) =>
+    apiFetch<{ item: ItemDetail }>(`/items/${encodeURIComponent(idNb)}`, {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    }),
+  create: (payload: ItemWrite & { idNb: string; name: string }) =>
+    apiFetch<{ item: ItemDetail }>("/items", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 
 // --- Mobs & NPC templates (read-only) --------------------------------------

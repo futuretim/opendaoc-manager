@@ -1,9 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 import { itemsApi, REALM_NAMES } from "../lib/api";
 
 export function ItemsPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [term, setTerm] = useState("");
   const [page, setPage] = useState(1);
 
@@ -16,7 +19,17 @@ export function ItemsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Items</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Items</h1>
+        {isAdmin && (
+          <Link
+            to="/items/new"
+            className="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-amber-400"
+          >
+            New item
+          </Link>
+        )}
+      </div>
 
       <input
         value={term}

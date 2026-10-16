@@ -548,8 +548,11 @@ game-content toolset**. This section catalogues it as a roadmap.
 > and region↔zone cross-linked. The read-only world-content browsers are now
 > broadly complete, and **editing has begun**: **Server config**
 > (`ServerProperty`) is the first write-enabled editor — admin-only,
-> `Value`-only, audited, with the cache-reload caveat surfaced in the UI.
-> Remaining: extend editing to more tables, and the dashboard.
+> `Value`-only, audited, with the cache-reload caveat surfaced in the UI. The
+> first **content editor** is also in: **Items** (`ItemTemplate`) supports
+> admin-only edit + create (column-scoped, validated, audited; delete not yet).
+> Remaining: extend editing to more content (mobs/loot/quests), delete with
+> guardrails, and the dashboard.
 
 1. **M0 — Scaffolding:** Vite SPA + Fastify API skeleton, shared TS config, Docker,
    DB connection to game DB verified, Manager DB migrations, auth stub.

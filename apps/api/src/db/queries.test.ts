@@ -17,7 +17,12 @@ import {
   buildSearchCharactersQuery,
 } from "./characters.js";
 import { buildGetQuestQuery, buildSearchQuestsQuery } from "./quests.js";
-import { buildGetItemQuery, buildSearchItemsQuery } from "./items.js";
+import {
+  buildCreateItemQuery,
+  buildGetItemQuery,
+  buildSearchItemsQuery,
+  buildUpdateItemQuery,
+} from "./items.js";
 import { buildGetMobQuery, buildSearchMobsQuery } from "./mobs.js";
 import { buildGetNpcTemplateQuery, buildSearchNpcTemplatesQuery } from "./npcTemplates.js";
 import {
@@ -168,6 +173,34 @@ describe("item query builders", () => {
     expect(q.text).toContain("`Condition`");
     expect(q.text).toMatch(/WHERE Id_nb = \? LIMIT 1$/);
     expect(q.values).toEqual(["my_item"]);
+  });
+
+  it("updates only submitted fields, coerces bools, escapes reserved cols", () => {
+    const q = buildUpdateItemQuery("my_item", { name: "Sword", quality: 99, isDropable: true });
+    expect(q.text).toBe(
+      "UPDATE ItemTemplate SET Name = ?, Quality = ?, IsDropable = ? WHERE Id_nb = ?",
+    );
+    expect(q.values).toEqual(["Sword", 99, 1, "my_item"]);
+
+    const withCond = buildUpdateItemQuery("my_item", { condition: 50000 });
+    expect(withCond.text).toContain("`Condition` = ?");
+  });
+
+  it("throws when an update has no known fields", () => {
+    expect(() => buildUpdateItemQuery("my_item", {})).toThrow(/No updatable fields/);
+    expect(() => buildUpdateItemQuery("my_item", { bogus: 1 })).toThrow(/No updatable fields/);
+  });
+
+  it("creates with all columns, provided values or type defaults", () => {
+    const q = buildCreateItemQuery("new_item", { name: "Axe", quality: 90, isDropable: true });
+    expect(q.text).toContain("INSERT INTO ItemTemplate (Id_nb,");
+    // Id_nb first, placeholders match column count.
+    const cols = q.text.slice(q.text.indexOf("(") + 1, q.text.indexOf(")")).split(",").length;
+    expect(q.values.length).toBe(cols);
+    expect(q.values[0]).toBe("new_item");
+    // A string field left unset defaults to "", an int to 0, a bool coerces to 1.
+    expect(q.values).toContain("Axe");
+    expect(q.values).toContain(1); // isDropable -> 1
   });
 });
 

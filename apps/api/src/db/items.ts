@@ -1,6 +1,95 @@
-import type { RowDataPacket } from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "mysql2";
 import { gameDb } from "./gameDb.js";
 import type { Sql } from "./accounts.js";
+
+export type ItemFieldKind = "int" | "long" | "bool" | "string";
+
+export interface ItemField {
+  key: string; // camelCase request/response key
+  column: string; // DB column (plain; reserved words escaped at build time)
+  kind: ItemFieldKind;
+  group: string; // UI grouping
+}
+
+/**
+ * Single source of truth for editable ItemTemplate columns, shared by the
+ * update builder, the create builder, and request validation. Id_nb (the PK)
+ * is handled separately — it is required and immutable after creation.
+ */
+export const ITEM_FIELDS: ItemField[] = [
+  { key: "name", column: "Name", kind: "string", group: "General" },
+  { key: "description", column: "Description", kind: "string", group: "General" },
+  { key: "examineArticle", column: "ExamineArticle", kind: "string", group: "General" },
+  { key: "messageArticle", column: "MessageArticle", kind: "string", group: "General" },
+  { key: "level", column: "Level", kind: "int", group: "General" },
+  { key: "realm", column: "Realm", kind: "int", group: "General" },
+  { key: "quality", column: "Quality", kind: "int", group: "General" },
+  { key: "model", column: "Model", kind: "int", group: "General" },
+  { key: "objectType", column: "Object_Type", kind: "int", group: "General" },
+  { key: "itemType", column: "Item_Type", kind: "int", group: "General" },
+  { key: "weight", column: "Weight", kind: "int", group: "General" },
+  { key: "price", column: "Price", kind: "long", group: "General" },
+  { key: "dpsAf", column: "DPS_AF", kind: "int", group: "Combat" },
+  { key: "spdAbs", column: "SPD_ABS", kind: "int", group: "Combat" },
+  { key: "hand", column: "Hand", kind: "int", group: "Combat" },
+  { key: "typeDamage", column: "Type_Damage", kind: "int", group: "Combat" },
+  { key: "bonus", column: "Bonus", kind: "int", group: "Combat" },
+  { key: "bonusLevel", column: "BonusLevel", kind: "int", group: "Combat" },
+  { key: "extraBonus", column: "ExtraBonus", kind: "int", group: "Combat" },
+  { key: "extraBonusType", column: "ExtraBonusType", kind: "int", group: "Combat" },
+  { key: "durability", column: "Durability", kind: "int", group: "Durability" },
+  { key: "maxDurability", column: "MaxDurability", kind: "int", group: "Durability" },
+  { key: "condition", column: "Condition", kind: "int", group: "Durability" },
+  { key: "maxCondition", column: "MaxCondition", kind: "int", group: "Durability" },
+  { key: "isIndestructible", column: "IsIndestructible", kind: "bool", group: "Durability" },
+  { key: "isNotLosingDur", column: "IsNotLosingDur", kind: "bool", group: "Durability" },
+  { key: "isPickable", column: "IsPickable", kind: "bool", group: "Flags" },
+  { key: "isDropable", column: "IsDropable", kind: "bool", group: "Flags" },
+  { key: "canDropAsLoot", column: "CanDropAsLoot", kind: "bool", group: "Flags" },
+  { key: "isTradable", column: "IsTradable", kind: "bool", group: "Flags" },
+  { key: "isStackable", column: "IsStackable", kind: "bool", group: "Flags" },
+  { key: "maxCount", column: "MaxCount", kind: "int", group: "Flags" },
+  { key: "packSize", column: "PackSize", kind: "int", group: "Flags" },
+  { key: "flags", column: "Flags", kind: "int", group: "Flags" },
+  { key: "allowUpdate", column: "AllowUpdate", kind: "bool", group: "Flags" },
+  { key: "levelRequirement", column: "LevelRequirement", kind: "int", group: "Requirements" },
+  { key: "allowedClasses", column: "AllowedClasses", kind: "string", group: "Requirements" },
+  { key: "effect", column: "Effect", kind: "int", group: "Charges" },
+  { key: "charges", column: "Charges", kind: "int", group: "Charges" },
+  { key: "maxCharges", column: "MaxCharges", kind: "int", group: "Charges" },
+  { key: "charges1", column: "Charges1", kind: "int", group: "Charges" },
+  { key: "maxCharges1", column: "MaxCharges1", kind: "int", group: "Charges" },
+  { key: "canUseEvery", column: "CanUseEvery", kind: "int", group: "Charges" },
+  { key: "poisonSpellID", column: "PoisonSpellID", kind: "int", group: "Charges" },
+  { key: "poisonCharges", column: "PoisonCharges", kind: "int", group: "Charges" },
+  { key: "poisonMaxCharges", column: "PoisonMaxCharges", kind: "int", group: "Charges" },
+  { key: "color", column: "Color", kind: "int", group: "Appearance" },
+  { key: "emblem", column: "Emblem", kind: "int", group: "Appearance" },
+  { key: "packageID", column: "PackageID", kind: "string", group: "Appearance" },
+  { key: "classType", column: "ClassType", kind: "string", group: "Appearance" },
+  { key: "salvageYieldID", column: "SalvageYieldID", kind: "int", group: "Appearance" },
+];
+
+// NOT NULL columns not exposed in the form — defaulted on create so inserts
+// never violate constraints.
+const CREATE_EXTRA_DEFAULTS: { column: string; value: unknown }[] = [
+  { column: "TranslationId", value: "" },
+  { column: "SalvageExtension", value: 0 },
+  { column: "Extension", value: 0 },
+];
+
+const RESERVED = new Set(["Condition", "Range", "Key"]);
+const esc = (col: string): string => (RESERVED.has(col) ? `\`${col}\`` : col);
+
+function coerce(kind: ItemFieldKind, value: unknown): unknown {
+  if (kind === "bool") return value ? 1 : 0;
+  if (kind === "int" || kind === "long") return Number(value ?? 0);
+  return value == null ? "" : String(value);
+}
+
+function defaultFor(kind: ItemFieldKind): unknown {
+  return kind === "string" ? "" : 0;
+}
 
 export interface ItemSummary {
   idNb: string;
@@ -55,6 +144,9 @@ export interface ItemDetail extends ItemSummary {
   packageID: string;
   classType: string;
   salvageYieldID: number;
+  examineArticle: string;
+  messageArticle: string;
+  allowUpdate: boolean;
 }
 
 const SUMMARY_COLUMNS =
@@ -66,7 +158,7 @@ const DETAIL_COLUMNS =
   "IsPickable, IsDropable, CanDropAsLoot, IsTradable, IsStackable, MaxCount, PackSize, Price, " +
   "LevelRequirement, AllowedClasses, Flags, Color, Emblem, Effect, Charges, MaxCharges, " +
   "Charges1, MaxCharges1, CanUseEvery, PoisonSpellID, PoisonCharges, PoisonMaxCharges, " +
-  "PackageID, ClassType, SalvageYieldID";
+  "PackageID, ClassType, SalvageYieldID, ExamineArticle, MessageArticle, AllowUpdate";
 
 export function buildSearchItemsQuery(params: {
   q?: string;
@@ -126,6 +218,51 @@ export async function searchItems(params: {
   return rows.map(toSummary);
 }
 
+export function buildUpdateItemQuery(
+  idNb: string,
+  updates: Record<string, unknown>,
+): Sql {
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  for (const f of ITEM_FIELDS) {
+    if (!(f.key in updates)) continue;
+    sets.push(`${esc(f.column)} = ?`);
+    values.push(coerce(f.kind, updates[f.key]));
+  }
+  if (sets.length === 0) throw new Error("No updatable fields provided");
+  values.push(idNb);
+  return { text: `UPDATE ItemTemplate SET ${sets.join(", ")} WHERE Id_nb = ?`, values };
+}
+
+export function buildCreateItemQuery(idNb: string, values: Record<string, unknown>): Sql {
+  const columns = ["Id_nb"];
+  const params: unknown[] = [idNb];
+  for (const f of ITEM_FIELDS) {
+    columns.push(esc(f.column));
+    params.push(f.key in values ? coerce(f.kind, values[f.key]) : defaultFor(f.kind));
+  }
+  for (const extra of CREATE_EXTRA_DEFAULTS) {
+    columns.push(esc(extra.column));
+    params.push(extra.value);
+  }
+  const placeholders = columns.map(() => "?").join(", ");
+  return {
+    text: `INSERT INTO ItemTemplate (${columns.join(", ")}) VALUES (${placeholders})`,
+    values: params,
+  };
+}
+
+export async function updateItem(idNb: string, updates: Record<string, unknown>): Promise<boolean> {
+  const { text, values } = buildUpdateItemQuery(idNb, updates);
+  const [res] = await gameDb.query<ResultSetHeader>(text, values);
+  return res.affectedRows > 0;
+}
+
+export async function createItem(idNb: string, values: Record<string, unknown>): Promise<void> {
+  const { text, values: params } = buildCreateItemQuery(idNb, values);
+  await gameDb.query<ResultSetHeader>(text, params);
+}
+
 export async function getItem(idNb: string): Promise<ItemDetail | null> {
   const { text, values } = buildGetItemQuery(idNb);
   const [rows] = await gameDb.query<ItemRow[]>(text, values);
@@ -173,5 +310,8 @@ export async function getItem(idNb: string): Promise<ItemDetail | null> {
     packageID: s(r.PackageID),
     classType: s(r.ClassType),
     salvageYieldID: n(r.SalvageYieldID),
+    examineArticle: s(r.ExamineArticle),
+    messageArticle: s(r.MessageArticle),
+    allowUpdate: b(r.AllowUpdate),
   };
 }

@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 import { formatMoney, itemsApi, REALM_NAMES, type ItemDetail } from "../lib/api";
 
 export function ItemDetailPage() {
   const { idNb = "" } = useParams();
+  const { user } = useAuth();
   const { data, isLoading, error } = useQuery({
     queryKey: ["item", idNb],
     queryFn: () => itemsApi.get(idNb),
@@ -15,16 +17,27 @@ export function ItemDetailPage() {
 
   const it = data.item;
   const yn = (v: boolean) => (v ? "Yes" : "No");
+  const isAdmin = user?.role === "admin";
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link to="/items" className="text-sm text-amber-600 hover:underline">
-          ← Items
-        </Link>
-        <h1 className="mt-1 text-xl font-semibold">{it.name || it.idNb}</h1>
-        <p className="font-mono text-xs text-slate-500">{it.idNb}</p>
-        {it.description && <p className="mt-2 text-sm text-slate-500">{it.description}</p>}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <Link to="/items" className="text-sm text-amber-600 hover:underline">
+            ← Items
+          </Link>
+          <h1 className="mt-1 text-xl font-semibold">{it.name || it.idNb}</h1>
+          <p className="font-mono text-xs text-slate-500">{it.idNb}</p>
+          {it.description && <p className="mt-2 text-sm text-slate-500">{it.description}</p>}
+        </div>
+        {isAdmin && (
+          <Link
+            to={`/items/${encodeURIComponent(it.idNb)}/edit`}
+            className="shrink-0 rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-slate-900 hover:bg-amber-400"
+          >
+            Edit
+          </Link>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
