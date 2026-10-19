@@ -20,6 +20,7 @@ const WORLD_NAV = [
   { to: "/zones", label: "Zones" },
   { to: "/teleports", label: "Teleports" },
   { to: "/server-properties", label: "Server config" },
+  { to: "/xp-rate", label: "XP rate" },
 ];
 
 const ADMIN_NAV = [

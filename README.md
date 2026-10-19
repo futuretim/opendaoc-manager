@@ -119,6 +119,12 @@ Behind staff auth (`requireAuth`), under `/api/v1`:
   (any staff) and `PATCH /server-properties/:key` (**admin-only, editable**;
   `Value`-only column-scoped write, audited with old/new value). The first
   write-enabled world-content editor.
+- **XP rate** — `GET /server-rates/xp` (any staff) + `PATCH /server-rates/xp`
+  (**admin-only**) — a focused, validated control for the global experience
+  multiplier (the `xp_rate` server property). The write accepts a numeric
+  multiplier (0 – 10000), normalizes it, and is audited (`server_rate.update`)
+  with old/new value. The web UI (**XP rate** under the World menu) shows the
+  current and default multiplier with quick presets.
 
 World-content pages are grouped under a **World** menu in the nav.
 

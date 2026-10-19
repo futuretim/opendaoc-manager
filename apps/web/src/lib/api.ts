@@ -808,6 +808,27 @@ export const serverPropertiesApi = {
     ),
 };
 
+// --- XP rate (global multiplier; read for staff, edit for admins) ----------
+
+export interface XpRate {
+  key: string;
+  description: string;
+  defaultValue: string;
+  defaultMultiplier: number;
+  value: string;
+  multiplier: number;
+  max: number;
+}
+
+export const serverRatesApi = {
+  getXp: () => apiFetch<{ rate: XpRate }>("/server-rates/xp"),
+  setXp: (value: number) =>
+    apiFetch<{ rate: XpRate; changed: boolean }>("/server-rates/xp", {
+      method: "PATCH",
+      body: JSON.stringify({ value }),
+    }),
+};
+
 /** Format a copper price into DAoC platinum/gold/silver/copper. */
 export function formatMoney(copperTotal: number): string {
   if (!copperTotal || copperTotal <= 0) return "0c";
