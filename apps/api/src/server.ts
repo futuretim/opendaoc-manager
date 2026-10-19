@@ -17,6 +17,7 @@ import { itemRoutes } from "./routes/items.js";
 import { npcRoutes } from "./routes/npcs.js";
 import { questRoutes } from "./routes/quests.js";
 import { serverPropertyRoutes } from "./routes/serverProperties.js";
+import { serverRateRoutes } from "./routes/serverRates.js";
 import { staffRoutes } from "./routes/staff.js";
 
 declare module "fastify" {
@@ -69,6 +70,7 @@ export async function buildServer(): Promise<FastifyInstance> {
         await abilityRoutes(secure);
         await geographyRoutes(secure);
         await serverPropertyRoutes(secure);
+        await serverRateRoutes(secure);
 
         // Admin-only: staff management + audit log.
         await secure.register(async (admin) => {
