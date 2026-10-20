@@ -1,4 +1,4 @@
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket, ResultSetHeader } from "mysql2";
 import { gameDb } from "./gameDb.js";
 import type { Sql } from "./accounts.js";
 
@@ -16,10 +16,11 @@ export interface CharacterDetail extends CharacterSummary {
   accountSlot: number;
   realmLevel: number;
   realmPoints: number;
+  bountyPoints: number;
 }
 
 const SUMMARY_COLUMNS = "Name, AccountName, Level, Class, Race, Realm, LastPlayed";
-const DETAIL_COLUMNS = `${SUMMARY_COLUMNS}, AccountSlot, RealmLevel, RealmPoints`;
+const DETAIL_COLUMNS = `${SUMMARY_COLUMNS}, AccountSlot, RealmLevel, RealmPoints, BountyPoints`;
 
 export function buildSearchCharactersQuery(params: {
   q?: string;
@@ -63,6 +64,38 @@ export function buildCharactersForAccountQuery(accountName: string): Sql {
   };
 }
 
+/** Columns a staff member may update, mapped to their request-body keys. */
+export const UPDATABLE_CHARACTER_FIELDS = {
+  level: "Level",
+  realmLevel: "RealmLevel",
+  realmPoints: "RealmPoints",
+  bountyPoints: "BountyPoints",
+} as const;
+
+export type UpdatableCharacterField = keyof typeof UPDATABLE_CHARACTER_FIELDS;
+
+export function buildUpdateCharacterQuery(
+  name: string,
+  updates: Partial<Record<UpdatableCharacterField, unknown>>,
+): Sql {
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  for (const [key, column] of Object.entries(UPDATABLE_CHARACTER_FIELDS)) {
+    const field = key as UpdatableCharacterField;
+    if (!(field in updates)) continue;
+    sets.push(`${column} = ?`);
+    values.push(updates[field]);
+  }
+  if (sets.length === 0) {
+    throw new Error("No updatable fields provided");
+  }
+  values.push(name);
+  return {
+    text: `UPDATE DOLCharacters SET ${sets.join(", ")} WHERE Name = ?`,
+    values,
+  };
+}
+
 interface CharacterRow extends RowDataPacket {
   Name: string;
   AccountName: string;
@@ -74,6 +107,7 @@ interface CharacterRow extends RowDataPacket {
   AccountSlot?: number;
   RealmLevel?: number;
   RealmPoints?: number;
+  BountyPoints?: number;
 }
 
 function toSummary(r: CharacterRow): CharacterSummary {
@@ -109,6 +143,7 @@ export async function getCharacter(name: string): Promise<CharacterDetail | null
     accountSlot: Number(r.AccountSlot ?? 0),
     realmLevel: Number(r.RealmLevel ?? 0),
     realmPoints: Number(r.RealmPoints ?? 0),
+    bountyPoints: Number(r.BountyPoints ?? 0),
   };
 }
 
@@ -116,4 +151,21 @@ export async function charactersForAccount(accountName: string): Promise<Charact
   const { text, values } = buildCharactersForAccountQuery(accountName);
   const [rows] = await gameDb.query<CharacterRow[]>(text, values);
   return rows.map(toSummary);
+}
+
+export async function characterExists(name: string): Promise<boolean> {
+  const [rows] = await gameDb.query<RowDataPacket[]>(
+    "SELECT 1 FROM DOLCharacters WHERE Name = ? LIMIT 1",
+    [name],
+  );
+  return rows.length > 0;
+}
+
+export async function updateCharacter(
+  name: string,
+  updates: Partial<Record<UpdatableCharacterField, unknown>>,
+): Promise<boolean> {
+  const { text, values } = buildUpdateCharacterQuery(name, updates);
+  const [res] = await gameDb.query<ResultSetHeader>(text, values);
+  return res.affectedRows > 0;
 }

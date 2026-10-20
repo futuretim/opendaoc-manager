@@ -8,8 +8,9 @@ See **[docs/MVP_SPEC.md](docs/MVP_SPEC.md)** for the full specification.
 
 > **Status:** Core functionality implemented — **account management**
 > (search, detail, password reset, privilege/status/mute/warn/notes),
-> **bans** (create/list/lift), **character inspection** (read-only, with
-> class/race names), **staff management** and an **audit-log viewer**
+> **bans** (create/list/lift), **character inspection & progression editing**
+> (level / realm level / realm & bounty points, with class/race names),
+> **staff management** and an **audit-log viewer**
 > (admin-only), all behind revocable server-side sessions. The stats/overview
 > dashboard is deliberately deferred.
 
@@ -90,8 +91,11 @@ Behind staff auth (`requireAuth`), under `/api/v1`:
   characters + ban status), `POST /accounts/:name/reset-password` (OpenDAoC
   hashing), `PATCH /accounts/:name` (status/mute/warn/tester/notes; `privLevel`
   is **admin-only**).
-- **Characters** — `GET /characters?query=&realm=`, `GET /characters/:name`
-  (read-only).
+- **Characters** — `GET /characters?query=&realm=`, `GET /characters/:name`,
+  `PATCH /characters/:name` (progression edits: `level`, `realmLevel`,
+  `realmPoints`, `bountyPoints`; column-scoped, audited). Changes apply at the
+  player's next login; a running server overwrites them on a logged-in
+  character's next save.
 - **Quests** — `GET /quests?query=`, `GET /quests/:id` (read-only world
   content: `DataQuest`, with multi-step fields parsed for display).
 - **Items** — `GET /items?query=`, `GET /items/:idNb` (read-only world

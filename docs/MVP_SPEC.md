@@ -63,7 +63,8 @@ provides a safe, auditable, point-and-click alternative from a browser.
 - Player-facing features (those live in the Account Manager).
 - Multi-server / multi-shard management. MVP targets **one** configured server.
 - Fine-grained role system beyond a basic admin/GM split (see §6.3).
-- Editing character stats/inventory/items.
+- Editing character inventory/items. *(Progression editing — level, realm
+  level, realm & bounty points — is now implemented; see §6.4.)*
 
 ---
 
@@ -175,13 +176,15 @@ treats the game DB as an external system of record and never alters its schema.
 > only on servers that ran the Account Manager against their DB. The Manager must
 > treat `DiscordName` as **optional** and degrade gracefully if absent.
 
-**`DOLCharacters`** (`DbCoreCharacter`, `TableName="DOLCharacters"`) — read-only
-in MVP. Useful columns: `Name`, `AccountName`, `AccountSlot`, `Level`, `Class`,
-`Race`, `Realm`, `RealmLevel`, `RealmPoints`, `LastPlayed`, plus stats. There is
+**`DOLCharacters`** (`DbCoreCharacter`, `TableName="DOLCharacters"`) — read for
+all staff; **progression fields editable** (`Level`, `RealmLevel`,
+`RealmPoints`, `BountyPoints`), column-scoped and audited. Useful columns:
+`Name`, `AccountName`, `AccountSlot`, `Level`, `Class`, `Race`, `Realm`,
+`RealmLevel`, `RealmPoints`, `BountyPoints`, `LastPlayed`, plus stats. There is
 **no soft-delete flag** — the in-game `/account deletecharacter` hard-deletes and
 the row is preserved in **`DOLCharactersBackup`** (`DbCoreCharacterBackup`). So
-character "deletion" is destructive; the Manager keeps it **read-only in MVP**
-(see §6.4).
+character **deletion** stays out of scope (see §6.4); edits are limited to the
+progression columns above, which the server reloads at the player's next login.
 
 **`Ban`** (`DbBans`, `TableName="Ban"`) — verified columns:
 | Column | Type | Notes |
@@ -301,16 +304,23 @@ ship in MVP, **P1** = ship if time allows. Operations map to the server's existi
     admin-only; all audited.
   - Never display password hashes in the UI.
 
-### 6.4 Epic: Character inspection (P0)
-- *As a staff member, I search characters and view their details.*
+### 6.4 Epic: Character inspection & progression editing (P0)
+- *As a staff member, I search characters, view their details, and adjust a
+  character's progression.*
 - **Acceptance:**
   - Search characters by name / account / realm / class; pagination.
   - Character detail: name, account, slot, level, class, race, realm, realm
-    level/points, last played, core stats.
-  - **Read-only in MVP.** Character deletion is **destructive** in the server
-    (hard delete + copy to `DOLCharactersBackup`); the Manager will not expose
-    delete/move in the MVP. *(Deferred: `/account deletecharacter`,
-    `/account movecharacter` — P1+, with explicit confirmations and audit.)*
+    level/points, bounty points, last played, core stats.
+  - **Progression editing:** `Level` (1–50), `RealmLevel` (0–120),
+    `RealmPoints`, `BountyPoints` — `PATCH /characters/:name`, column-scoped and
+    audited (`character.update`). Reloaded at the player's next login; a running
+    server overwrites a logged-in character on its next save, so staff apply
+    edits while the character is offline.
+  - **Deletion/move stay out of scope.** Character deletion is **destructive**
+    in the server (hard delete + copy to `DOLCharactersBackup`); the Manager
+    will not expose delete/move in the MVP. *(Deferred: `/account
+    deletecharacter`, `/account movecharacter` — P1+, with explicit
+    confirmations and audit.)*
 
 ### 6.5 Epic: Bans (P0 — **unblocked; schema verified**)
 - *As a staff member, I ban an account and/or IP, and lift bans.*
