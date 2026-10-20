@@ -15,6 +15,7 @@ import {
   buildCharactersForAccountQuery,
   buildGetCharacterQuery,
   buildSearchCharactersQuery,
+  buildUpdateCharacterQuery,
 } from "./characters.js";
 import { buildGetQuestQuery, buildSearchQuestsQuery } from "./quests.js";
 import { buildGetItemQuery, buildSearchItemsQuery } from "./items.js";
@@ -98,6 +99,27 @@ describe("character query builders", () => {
   it("fetches a character and an account's characters", () => {
     expect(buildGetCharacterQuery("Hero").values).toEqual(["Hero"]);
     expect(buildCharactersForAccountQuery("Alice").text).toContain("WHERE AccountName = ?");
+  });
+
+  it("maps only known updatable character fields", () => {
+    const q = buildUpdateCharacterQuery("Hero", { level: 50, realmPoints: 1000 });
+    expect(q.text).toBe("UPDATE DOLCharacters SET Level = ?, RealmPoints = ? WHERE Name = ?");
+    expect(q.values).toEqual([50, 1000, "Hero"]);
+  });
+
+  it("ignores unknown character fields and preserves column order", () => {
+    const q = buildUpdateCharacterQuery("Hero", {
+      bountyPoints: 5,
+      realmLevel: 40,
+      // @ts-expect-error — not an updatable field
+      class: 99,
+    });
+    expect(q.text).toBe("UPDATE DOLCharacters SET RealmLevel = ?, BountyPoints = ? WHERE Name = ?");
+    expect(q.values).toEqual([40, 5, "Hero"]);
+  });
+
+  it("throws when there is nothing to update on a character", () => {
+    expect(() => buildUpdateCharacterQuery("Hero", {})).toThrow();
   });
 });
 

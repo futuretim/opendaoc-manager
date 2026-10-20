@@ -131,6 +131,14 @@ export interface CharacterDetail extends CharacterSummary {
   accountSlot: number;
   realmLevel: number;
   realmPoints: number;
+  bountyPoints: number;
+}
+
+export interface CharacterUpdate {
+  level?: number;
+  realmLevel?: number;
+  realmPoints?: number;
+  bountyPoints?: number;
 }
 
 export const charactersApi = {
@@ -140,6 +148,11 @@ export const charactersApi = {
     ),
   get: (name: string) =>
     apiFetch<{ character: CharacterDetail }>(`/characters/${encodeURIComponent(name)}`),
+  update: (name: string, updates: CharacterUpdate) =>
+    apiFetch<{ character: CharacterDetail }>(`/characters/${encodeURIComponent(name)}`, {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    }),
 };
 
 // --- Bans ------------------------------------------------------------------
