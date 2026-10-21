@@ -21,6 +21,7 @@ const WORLD_NAV = [
   { to: "/teleports", label: "Teleports" },
   { to: "/server-properties", label: "Server config" },
   { to: "/xp-rate", label: "XP rate" },
+  { to: "/death-xp-loss", label: "Death XP loss" },
 ];
 
 const ADMIN_NAV = [
