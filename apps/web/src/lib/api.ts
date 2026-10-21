@@ -829,6 +829,36 @@ export const serverRatesApi = {
     }),
 };
 
+// --- Death XP loss (pve_exp_loss_level; read for staff, edit for admins) ----
+
+export interface DeathXpLoss {
+  key: string;
+  description: string;
+  value: string;
+  startLevel: number;
+  enabled: boolean;
+  defaultValue: string;
+  defaultStartLevel: number;
+  defaultEnabled: boolean;
+  disabledLevel: number;
+  maxPlayerLevel: number;
+  defaultStartLevelForEnable: number;
+}
+
+export interface DeathXpLossUpdate {
+  enabled: boolean;
+  startLevel?: number;
+}
+
+export const deathXpLossApi = {
+  get: () => apiFetch<{ setting: DeathXpLoss }>("/death-xp-loss"),
+  set: (update: DeathXpLossUpdate) =>
+    apiFetch<{ setting: DeathXpLoss; changed: boolean }>("/death-xp-loss", {
+      method: "PATCH",
+      body: JSON.stringify(update),
+    }),
+};
+
 /** Format a copper price into DAoC platinum/gold/silver/copper. */
 export function formatMoney(copperTotal: number): string {
   if (!copperTotal || copperTotal <= 0) return "0c";

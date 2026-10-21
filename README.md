@@ -125,6 +125,14 @@ Behind staff auth (`requireAuth`), under `/api/v1`:
   multiplier (0 – 10000), normalizes it, and is audited (`server_rate.update`)
   with old/new value. The web UI (**XP rate** under the World menu) shows the
   current and default multiplier with quick presets.
+- **Death XP loss** — `GET /death-xp-loss` (any staff) + `PATCH /death-xp-loss`
+  (**admin-only**) — an on/off control for whether a PvE death costs the player
+  experience. Backed by the `pve_exp_loss_level` server property (the lowest
+  level at which death deducts XP); disabling raises the threshold above the
+  max level so no player loses XP on death, enabling restores it from a chosen
+  start level (1–50, default 6). Audited (`death_xp_loss.update`) with old/new
+  value. The web UI (**Death XP loss** under the World menu) shows the current
+  state with an enable/disable toggle.
 
 World-content pages are grouped under a **World** menu in the nav.
 

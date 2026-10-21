@@ -10,6 +10,7 @@ import { auditRoutes } from "./routes/audit.js";
 import { authRoutes } from "./routes/auth.js";
 import { banRoutes } from "./routes/bans.js";
 import { characterRoutes } from "./routes/characters.js";
+import { deathXpLossRoutes } from "./routes/deathXpLoss.js";
 import { economyRoutes } from "./routes/economy.js";
 import { geographyRoutes } from "./routes/geography.js";
 import { healthRoutes } from "./routes/health.js";
@@ -71,6 +72,7 @@ export async function buildServer(): Promise<FastifyInstance> {
         await geographyRoutes(secure);
         await serverPropertyRoutes(secure);
         await serverRateRoutes(secure);
+        await deathXpLossRoutes(secure);
 
         // Admin-only: staff management + audit log.
         await secure.register(async (admin) => {

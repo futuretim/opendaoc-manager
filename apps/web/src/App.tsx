@@ -31,6 +31,7 @@ import { StaffPage } from "./pages/StaffPage";
 import { StyleDetailPage } from "./pages/StyleDetailPage";
 import { StylesPage } from "./pages/StylesPage";
 import { TeleportsPage } from "./pages/TeleportsPage";
+import { DeathXpLossPage } from "./pages/DeathXpLossPage";
 import { XpRatePage } from "./pages/XpRatePage";
 import { ZoneDetailPage } from "./pages/ZoneDetailPage";
 import { ZonesPage } from "./pages/ZonesPage";
@@ -71,6 +72,7 @@ export default function App() {
               <Route path="/teleports" element={<TeleportsPage />} />
               <Route path="/server-properties" element={<ServerPropertiesPage />} />
               <Route path="/xp-rate" element={<XpRatePage />} />
+              <Route path="/death-xp-loss" element={<DeathXpLossPage />} />
               <Route path="/bans" element={<BansPage />} />
               <Route element={<AdminRoute />}>
                 <Route path="/staff" element={<StaffPage />} />
