@@ -4,12 +4,16 @@ import { writeAudit } from "../audit.js";
 import { clientIp, requireRole } from "../auth/guards.js";
 import {
   getServerProperty,
+  listAllServerProperties,
   listServerProperties,
   updateServerPropertyValue,
 } from "../db/serverProperties.js";
 
 const listQuery = z.object({
   query: z.string().optional(),
+  // When set, return the complete property set (unpaginated) so the UI can
+  // browse everything grouped by category.
+  all: z.coerce.boolean().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),
 });
@@ -21,7 +25,11 @@ const patchBody = z.object({
 export async function serverPropertyRoutes(app: FastifyInstance): Promise<void> {
   // Read: any staff.
   app.get("/server-properties", async (request) => {
-    const { query, page, pageSize } = listQuery.parse(request.query);
+    const { query, all, page, pageSize } = listQuery.parse(request.query);
+    if (all) {
+      const items = await listAllServerProperties();
+      return { items, all: true };
+    }
     const items = await listServerProperties({
       q: query,
       limit: pageSize,

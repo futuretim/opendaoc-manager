@@ -115,10 +115,13 @@ Behind staff auth (`requireAuth`), under `/api/v1`:
   `GET /zones?query=` + `GET /zones/:id`, `GET /teleports?query=`
   (read-only `Regions`/`Zones`/`Teleport`, region↔zone cross-linked).
 
-- **Server config** — `GET /server-properties?query=` + `GET /server-properties/:key`
-  (any staff) and `PATCH /server-properties/:key` (**admin-only, editable**;
-  `Value`-only column-scoped write, audited with old/new value). The first
-  write-enabled world-content editor.
+- **Server config** — `GET /server-properties?query=` (paged) or
+  `?all=true` (the complete set), `GET /server-properties/:key` (any staff) and
+  `PATCH /server-properties/:key` (**admin-only, editable**; `Value`-only
+  column-scoped write, audited with old/new value). The web UI (**Server
+  config**) exposes **every** server property, grouped by category, with a
+  category nav, a key/description/category filter, and a "modified from default
+  only" toggle. The first write-enabled editor.
 - **XP rate** — `GET /server-rates/xp` (any staff) + `PATCH /server-rates/xp`
   (**admin-only**) — a focused, validated control for the global experience
   multiplier (the `xp_rate` server property). The write accepts a numeric

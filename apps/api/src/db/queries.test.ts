@@ -38,6 +38,7 @@ import {
 } from "./geography.js";
 import {
   buildGetServerPropertyQuery,
+  buildListAllServerPropertiesQuery,
   buildListServerPropertiesQuery,
   buildUpdateServerPropertyQuery,
 } from "./serverProperties.js";
@@ -335,5 +336,13 @@ describe("server property query builders", () => {
     const q = buildUpdateServerPropertyQuery("xp_rate", "2.0");
     expect(q.text).toBe("UPDATE ServerProperty SET Value = ? WHERE `Key` = ?");
     expect(q.values).toEqual(["2.0", "xp_rate"]);
+  });
+
+  it("lists every property unpaginated, ordered by category then key", () => {
+    const q = buildListAllServerPropertiesQuery();
+    expect(q.text).toContain("FROM ServerProperty");
+    expect(q.text).toContain("ORDER BY Category ASC, `Key` ASC");
+    expect(q.text).not.toContain("LIMIT");
+    expect(q.values).toEqual([]);
   });
 });
