@@ -801,6 +801,7 @@ export const serverPropertiesApi = {
     apiFetch<{ items: ServerProperty[]; page: number; pageSize: number }>(
       `/server-properties${qs({ query, page, pageSize })}`,
     ),
+  all: () => apiFetch<{ items: ServerProperty[] }>("/server-properties?all=true"),
   update: (key: string, value: string) =>
     apiFetch<{ property: ServerProperty; changed: boolean }>(
       `/server-properties/${encodeURIComponent(key)}`,

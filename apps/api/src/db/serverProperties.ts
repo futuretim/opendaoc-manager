@@ -35,6 +35,18 @@ export function buildListServerPropertiesQuery(params: {
   };
 }
 
+/**
+ * Every server property, unpaginated, ordered by category then key. Backs the
+ * category-grouped "browse all" config view, where completeness matters more
+ * than page size — the ServerProperty table is a few hundred small rows.
+ */
+export function buildListAllServerPropertiesQuery(): Sql {
+  return {
+    text: `SELECT ${COLUMNS} FROM ServerProperty ORDER BY Category ASC, \`Key\` ASC`,
+    values: [],
+  };
+}
+
 export function buildGetServerPropertyQuery(key: string): Sql {
   return { text: `SELECT ${COLUMNS} FROM ServerProperty WHERE \`Key\` = ? LIMIT 1`, values: [key] };
 }
@@ -67,6 +79,12 @@ export async function listServerProperties(params: {
   offset: number;
 }): Promise<ServerProperty[]> {
   const { text, values } = buildListServerPropertiesQuery(params);
+  const [rows] = await gameDb.query<Row[]>(text, values);
+  return rows.map(toProperty);
+}
+
+export async function listAllServerProperties(): Promise<ServerProperty[]> {
+  const { text, values } = buildListAllServerPropertiesQuery();
   const [rows] = await gameDb.query<Row[]>(text, values);
   return rows.map(toProperty);
 }
