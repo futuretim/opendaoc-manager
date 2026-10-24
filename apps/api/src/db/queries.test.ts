@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  ACCOUNT_NAME_REFERENCES,
   buildGetAccountQuery,
+  buildRenameAccountQuery,
+  buildRenameReferenceQuery,
   buildResetPasswordQuery,
   buildSearchAccountsQuery,
   buildUpdateAccountQuery,
@@ -12,10 +15,16 @@ import {
   buildListBansQuery,
 } from "./bans.js";
 import {
+  REALM_SLOT_BASE,
+  SLOTS_PER_REALM,
   buildCharactersForAccountQuery,
   buildGetCharacterQuery,
+  buildMoveCharacterQuery,
+  buildOccupiedSlotsQuery,
+  buildRenameCharacterQuery,
   buildSearchCharactersQuery,
   buildUpdateCharacterQuery,
+  firstFreeSlot,
 } from "./characters.js";
 import { buildGetQuestQuery, buildSearchQuestsQuery } from "./quests.js";
 import { buildGetItemQuery, buildSearchItemsQuery } from "./items.js";
@@ -79,6 +88,29 @@ describe("account query builders", () => {
     expect(q.values).toEqual([2, 1, "warned twice", "Alice"]);
   });
 
+  it("renames the account row by name", () => {
+    const q = buildRenameAccountQuery("Old", "New");
+    expect(q.text).toBe("UPDATE account SET Name = ? WHERE Name = ?");
+    expect(q.values).toEqual(["New", "Old"]);
+  });
+
+  it("builds a backtick-escaped, name-scoped cascade for each reference", () => {
+    const q = buildRenameReferenceQuery(
+      { table: "DOLCharacters", column: "AccountName" },
+      "Old",
+      "New",
+    );
+    expect(q.text).toBe("UPDATE `DOLCharacters` SET `AccountName` = ? WHERE `AccountName` = ?");
+    expect(q.values).toEqual(["New", "Old"]);
+  });
+
+  it("includes the characters and ban references but not AccountXMoney", () => {
+    const tables = ACCOUNT_NAME_REFERENCES.map((r) => r.table);
+    expect(tables).toContain("DOLCharacters");
+    expect(tables).toContain("Ban");
+    expect(tables).not.toContain("AccountXMoney");
+  });
+
   it("throws when there is nothing to update", () => {
     expect(() => buildUpdateAccountQuery("Alice", {})).toThrow(/No updatable fields/);
   });
@@ -121,6 +153,44 @@ describe("character query builders", () => {
 
   it("throws when there is nothing to update on a character", () => {
     expect(() => buildUpdateCharacterQuery("Hero", {})).toThrow();
+  });
+
+  it("renames a character by name only", () => {
+    const q = buildRenameCharacterQuery("Hero", "Villain");
+    expect(q.text).toBe("UPDATE DOLCharacters SET Name = ? WHERE Name = ?");
+    expect(q.values).toEqual(["Villain", "Hero"]);
+  });
+
+  it("queries occupied slots and moves to a chosen slot/account", () => {
+    expect(buildOccupiedSlotsQuery("Alice", 2).values).toEqual(["Alice", 2]);
+    const move = buildMoveCharacterQuery("Hero", "Alice", 203);
+    expect(move.text).toBe(
+      "UPDATE DOLCharacters SET AccountName = ?, AccountSlot = ? WHERE Name = ?",
+    );
+    expect(move.values).toEqual(["Alice", 203, "Hero"]);
+  });
+});
+
+describe("firstFreeSlot", () => {
+  it("returns the realm base slot when none are taken", () => {
+    expect(firstFreeSlot(1, [])).toBe(100);
+    expect(firstFreeSlot(2, [])).toBe(200);
+    expect(firstFreeSlot(3, [])).toBe(300);
+  });
+
+  it("returns the lowest free slot, skipping occupied ones", () => {
+    expect(firstFreeSlot(1, [100, 101, 103])).toBe(102);
+    expect(firstFreeSlot(2, [200, 201, 202, 203, 204, 205, 206])).toBe(207);
+  });
+
+  it("returns null when all eight slots are taken", () => {
+    const full = Array.from({ length: SLOTS_PER_REALM }, (_, i) => REALM_SLOT_BASE[1] + i);
+    expect(firstFreeSlot(1, full)).toBeNull();
+  });
+
+  it("returns null for a non-playable realm", () => {
+    expect(firstFreeSlot(0, [])).toBeNull();
+    expect(firstFreeSlot(9, [])).toBeNull();
   });
 });
 
