@@ -1,11 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { writeAudit } from "../audit.js";
-import { clientIp } from "../auth/guards.js";
+import { clientIp, requireRole } from "../auth/guards.js";
 import { cryptGamePassword } from "../auth/password.js";
 import {
   accountExists,
   getAccount,
+  renameAccount,
   resetPassword,
   searchAccounts,
   updateAccount,
@@ -13,6 +14,16 @@ import {
 } from "../db/accounts.js";
 import { accountBanStatus } from "../db/bans.js";
 import { charactersForAccount } from "../db/characters.js";
+
+// OpenDAoC login names are ASCII identifiers; keep renames conservative.
+const accountNameSchema = z
+  .string()
+  .trim()
+  .min(2, "Name must be at least 2 characters")
+  .max(24, "Name must be at most 24 characters")
+  .regex(/^[A-Za-z0-9_-]+$/, "Name may contain only letters, digits, underscores, and hyphens");
+
+const renameBody = z.object({ newName: accountNameSchema });
 
 const pageQuery = z.object({
   query: z.string().optional(),
@@ -118,5 +129,45 @@ export async function accountRoutes(app: FastifyInstance): Promise<void> {
 
     const account = await getAccount(name);
     return { account };
+  });
+
+  // Rename an account. Admin-only: `Name` is the account's primary key and the
+  // rename cascades to every table that references the account by name
+  // (characters, bans, crafting, custom params), atomically.
+  app.post("/accounts/:name/rename", { preHandler: requireRole("admin") }, async (request, reply) => {
+    const { name } = request.params as { name: string };
+    const parsed = renameBody.safeParse(request.body);
+    if (!parsed.success) {
+      return reply
+        .code(400)
+        .send({ error: { code: "bad_request", message: parsed.error.issues[0]?.message ?? "Invalid name." } });
+    }
+    const newName = parsed.data.newName;
+
+    if (!(await accountExists(name))) {
+      return reply.code(404).send({ error: { code: "not_found", message: "Account not found." } });
+    }
+    if (newName.toLowerCase() === name.toLowerCase()) {
+      return reply
+        .code(400)
+        .send({ error: { code: "bad_request", message: "The new name matches the current name." } });
+    }
+    if (await accountExists(newName)) {
+      return reply
+        .code(409)
+        .send({ error: { code: "conflict", message: `An account named "${newName}" already exists.` } });
+    }
+
+    const result = await renameAccount(name, newName);
+    await writeAudit({
+      actorUserId: request.authUser?.id ?? null,
+      action: "account.rename",
+      target: `account:${name}`,
+      metadata: { from: name, to: newName, cascades: result.cascades },
+      ip: clientIp(request),
+    });
+
+    const account = await getAccount(newName);
+    return { account, cascades: result.cascades };
   });
 }
