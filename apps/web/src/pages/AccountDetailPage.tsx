@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   accountsApi,
@@ -45,6 +45,8 @@ export function AccountDetailPage() {
         <EditAccount account={account} isAdmin={isAdmin} onSaved={refetch} />
         <ResetPassword name={account.name} />
       </div>
+
+      {isAdmin && <RenameAccount name={account.name} characterCount={characters.length} />}
 
       <BansSection accountName={account.name} bans={bans} onChanged={refetch} />
 
@@ -94,6 +96,60 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
       <h2 className="mb-3 font-semibold">{title}</h2>
       {children}
     </section>
+  );
+}
+
+function RenameAccount({ name, characterCount }: { name: string; characterCount: number }) {
+  const navigate = useNavigate();
+  const [newName, setNewName] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => accountsApi.rename(name, newName.trim()),
+    onSuccess: (res) => navigate(`/accounts/${encodeURIComponent(res.account.name)}`),
+    onError: (e) => setMsg((e as Error).message),
+  });
+
+  const valid = /^[A-Za-z0-9_-]{2,24}$/.test(newName.trim()) && newName.trim().toLowerCase() !== name.toLowerCase();
+
+  return (
+    <Card title="Rename account">
+      <div className="space-y-3 text-sm">
+        <p className="text-slate-500">
+          Changes the account's login name and updates every reference to it —
+          {characterCount === 1 ? " its 1 character" : ` its ${characterCount} characters`}, bans, and
+          account-bound data — in one transaction. The player signs in with the new name afterward.
+        </p>
+        <div className="flex gap-2">
+          <input
+            value={newName}
+            onChange={(e) => {
+              setNewName(e.target.value);
+              setMsg(null);
+            }}
+            placeholder="New account name"
+            className="w-full rounded-md border border-slate-300 px-2 py-1 font-mono dark:border-slate-700 dark:bg-slate-800"
+          />
+          <button
+            onClick={() => {
+              setMsg(null);
+              mutation.mutate();
+            }}
+            disabled={!valid || mutation.isPending}
+            className="whitespace-nowrap rounded-md bg-amber-500 px-4 py-1.5 font-medium text-slate-900 hover:bg-amber-400 disabled:opacity-40"
+          >
+            {mutation.isPending ? "Renaming…" : "Rename"}
+          </button>
+        </div>
+        {newName.trim() !== "" && !valid && (
+          <p className="text-xs text-red-600">
+            2–24 characters: letters, digits, underscores, or hyphens, and different from the current
+            name.
+          </p>
+        )}
+        {msg && <p className="text-xs text-slate-500">{msg}</p>}
+      </div>
+    </Card>
   );
 }
 

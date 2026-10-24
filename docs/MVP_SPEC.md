@@ -302,6 +302,11 @@ ship in MVP, **P1** = ship if time allows. Operations map to the server's existi
   - **Status / mute / warn / tester / notes:** edit `Status` (0–255), `IsMuted`,
     `IsWarned`, `IsTester`, `Notes`; mute/warn are GM-allowed, `PrivLevel` is
     admin-only; all audited.
+  - **Rename account:** **admin-only**; `Name` is the account's primary key, so
+    the rename cascades in one transaction to every table that references it by
+    name (`DOLCharacters`, `DOLCharactersBackup`, `Ban`, `AccountXCrafting`,
+    `AccountXCustomParam` — whichever exist in the schema); rejects a name
+    already in use; audited (`account.rename`).
   - Never display password hashes in the UI.
 
 ### 6.4 Epic: Character inspection & progression editing (P0)
@@ -316,11 +321,18 @@ ship in MVP, **P1** = ship if time allows. Operations map to the server's existi
     audited (`character.update`). Reloaded at the player's next login; a running
     server overwrites a logged-in character on its next save, so staff apply
     edits while the character is offline.
-  - **Deletion/move stay out of scope.** Character deletion is **destructive**
-    in the server (hard delete + copy to `DOLCharactersBackup`); the Manager
-    will not expose delete/move in the MVP. *(Deferred: `/account
-    deletecharacter`, `/account movecharacter` — P1+, with explicit
-    confirmations and audit.)*
+  - **Rename (admin-only):** `POST /characters/:name/rename` updates only
+    `DOLCharacters.Name` (unique server-wide; inventory/skills/guild follow the
+    character's stable id). Audited (`character.rename`).
+  - **Move between accounts (admin-only):** `POST /characters/:name/move`
+    reassigns `AccountName` and the first free slot for the character's realm on
+    the destination account (base 100/200/300, 8 slots each), mirroring the
+    server's `movecharacter` but rejecting a full account instead of colliding.
+    Audited (`character.move`).
+  - **Deletion stays out of scope.** Character deletion is **destructive** in
+    the server (hard delete + copy to `DOLCharactersBackup`); the Manager will
+    not expose it in the MVP. *(Deferred: `/account deletecharacter` — P1+, with
+    explicit confirmation and audit.)*
 
 ### 6.5 Epic: Bans (P0 — **unblocked; schema verified**)
 - *As a staff member, I ban an account and/or IP, and lift bans.*

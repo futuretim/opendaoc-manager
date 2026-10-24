@@ -7,10 +7,10 @@ game server — the staff-facing counterpart to the player-facing
 See **[docs/MVP_SPEC.md](docs/MVP_SPEC.md)** for the full specification.
 
 > **Status:** Core functionality implemented — **account management**
-> (search, detail, password reset, privilege/status/mute/warn/notes),
-> **bans** (create/list/lift), **character inspection & progression editing**
-> (level / realm level / realm & bounty points, with class/race names),
-> **staff management** and an **audit-log viewer**
+> (search, detail, password reset, privilege/status/mute/warn/notes, rename),
+> **bans** (create/list/lift), **character inspection & editing**
+> (level / realm level / realm & bounty points, rename, move between accounts,
+> with class/race names), **staff management** and an **audit-log viewer**
 > (admin-only), all behind revocable server-side sessions. The stats/overview
 > dashboard is deliberately deferred.
 
@@ -90,12 +90,19 @@ Behind staff auth (`requireAuth`), under `/api/v1`:
 - **Accounts** — `GET /accounts?query=`, `GET /accounts/:name` (detail +
   characters + ban status), `POST /accounts/:name/reset-password` (OpenDAoC
   hashing), `PATCH /accounts/:name` (status/mute/warn/tester/notes; `privLevel`
-  is **admin-only**).
+  is **admin-only**), `POST /accounts/:name/rename` (**admin-only**). Rename
+  changes the account's primary-key `Name` and cascades, in one transaction, to
+  every table that references it by name — characters, bans, crafting skills,
+  and account custom params (skipping any not present in the schema).
 - **Characters** — `GET /characters?query=&realm=`, `GET /characters/:name`,
   `PATCH /characters/:name` (progression edits: `level`, `realmLevel`,
-  `realmPoints`, `bountyPoints`; column-scoped, audited). Changes apply at the
-  player's next login; a running server overwrites them on a logged-in
-  character's next save.
+  `realmPoints`, `bountyPoints`; column-scoped, audited),
+  `POST /characters/:name/rename` and `POST /characters/:name/move`
+  (**admin-only**). Rename updates only `DOLCharacters.Name` (unique;
+  inventory/skills follow the character's id). Move reassigns `AccountName`
+  and the first free realm slot on the destination account (base 100/200/300,
+  8 slots), rejecting a full account. Changes apply at the player's next login;
+  a running server overwrites them on a logged-in character's next save.
 - **Quests** — `GET /quests?query=`, `GET /quests/:id` (read-only world
   content: `DataQuest`, with multi-step fields parsed for display).
 - **Items** — `GET /items?query=`, `GET /items/:idNb` (read-only world

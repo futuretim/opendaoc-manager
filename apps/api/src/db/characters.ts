@@ -169,3 +169,95 @@ export async function updateCharacter(
   const [res] = await gameDb.query<ResultSetHeader>(text, values);
   return res.affectedRows > 0;
 }
+
+// ---------------------------------------------------------------------------
+// Character rename.
+//
+// Only DOLCharacters.Name changes: every other table references a character by
+// its stable ObjectId (DOLCharacters_ID), not its name, so nothing cascades.
+// Character names are globally unique, so callers must reject a name already
+// in use.
+// ---------------------------------------------------------------------------
+
+export function buildRenameCharacterQuery(oldName: string, newName: string): Sql {
+  return { text: "UPDATE DOLCharacters SET Name = ? WHERE Name = ?", values: [newName, oldName] };
+}
+
+export async function renameCharacter(oldName: string, newName: string): Promise<boolean> {
+  const { text, values } = buildRenameCharacterQuery(oldName, newName);
+  const [res] = await gameDb.query<ResultSetHeader>(text, values);
+  return res.affectedRows > 0;
+}
+
+// ---------------------------------------------------------------------------
+// Move character to another account.
+//
+// Mirrors the server's own /account movecharacter: an account's character
+// slots are grouped by realm, with a base slot per realm and eight slots each.
+// The moved character keeps its realm and takes the first free slot of that
+// realm on the destination account.
+// ---------------------------------------------------------------------------
+
+/** First AccountSlot for each playable realm (OpenDAoC). */
+export const REALM_SLOT_BASE: Record<number, number> = { 1: 100, 2: 200, 3: 300 };
+export const SLOTS_PER_REALM = 8;
+
+/**
+ * The lowest free slot for `realm` given the slots already occupied on the
+ * destination account, or null when the realm is invalid or all eight slots
+ * are taken. (The server has a latent bug that lets a 9th character collide on
+ * a slot; returning null lets callers reject cleanly instead.)
+ */
+export function firstFreeSlot(realm: number, occupied: number[]): number | null {
+  const base = REALM_SLOT_BASE[realm];
+  if (base === undefined) return null;
+  const used = new Set(occupied);
+  for (let slot = base; slot < base + SLOTS_PER_REALM; slot++) {
+    if (!used.has(slot)) return slot;
+  }
+  return null;
+}
+
+export function buildOccupiedSlotsQuery(accountName: string, realm: number): Sql {
+  return {
+    text: "SELECT AccountSlot FROM DOLCharacters WHERE AccountName = ? AND Realm = ?",
+    values: [accountName, realm],
+  };
+}
+
+export function buildMoveCharacterQuery(name: string, toAccount: string, slot: number): Sql {
+  return {
+    text: "UPDATE DOLCharacters SET AccountName = ?, AccountSlot = ? WHERE Name = ?",
+    values: [toAccount, slot, name],
+  };
+}
+
+export type MoveCharacterResult =
+  | { status: "moved"; slot: number }
+  | { status: "invalid_realm" }
+  | { status: "no_free_slot" };
+
+/**
+ * Move `name` to `toAccount`, assigning the first free slot for the
+ * character's `realm` on that account. Callers must have verified the
+ * character and destination account exist.
+ */
+export async function moveCharacter(
+  name: string,
+  toAccount: string,
+  realm: number,
+): Promise<MoveCharacterResult> {
+  if (REALM_SLOT_BASE[realm] === undefined) return { status: "invalid_realm" };
+
+  const occ = buildOccupiedSlotsQuery(toAccount, realm);
+  const [rows] = await gameDb.query<(RowDataPacket & { AccountSlot: number })[]>(occ.text, occ.values);
+  const slot = firstFreeSlot(
+    realm,
+    rows.map((r) => Number(r.AccountSlot)),
+  );
+  if (slot === null) return { status: "no_free_slot" };
+
+  const { text, values } = buildMoveCharacterQuery(name, toAccount, slot);
+  await gameDb.query<ResultSetHeader>(text, values);
+  return { status: "moved", slot };
+}

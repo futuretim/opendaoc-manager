@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 import {
   charactersApi,
   className,
@@ -12,6 +13,8 @@ import {
 export function CharacterDetailPage() {
   const { name = "" } = useParams();
   const qc = useQueryClient();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const { data, isLoading, error } = useQuery({
     queryKey: ["character", name],
     queryFn: () => charactersApi.get(name),
@@ -70,7 +73,133 @@ export function CharacterDetailPage() {
           </table>
         </section>
       </div>
+
+      {isAdmin && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <RenameCharacter name={c.name} />
+          <MoveCharacter name={c.name} currentAccount={c.accountName} onMoved={refetch} />
+        </div>
+      )}
     </div>
+  );
+}
+
+function CharCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <h2 className="mb-3 font-semibold">{title}</h2>
+      <div className="space-y-3 text-sm">{children}</div>
+    </section>
+  );
+}
+
+function RenameCharacter({ name }: { name: string }) {
+  const navigate = useNavigate();
+  const [newName, setNewName] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => charactersApi.rename(name, newName.trim()),
+    onSuccess: (res) => navigate(`/characters/${encodeURIComponent(res.character.name)}`),
+    onError: (e) => setMsg((e as Error).message),
+  });
+
+  const valid =
+    /^[A-Za-z]{2,24}$/.test(newName.trim()) && newName.trim().toLowerCase() !== name.toLowerCase();
+
+  return (
+    <CharCard title="Rename character">
+      <p className="text-slate-500">
+        Renames this character. Names are unique server-wide; inventory, skills, and guild membership
+        follow the character automatically.
+      </p>
+      <div className="flex gap-2">
+        <input
+          value={newName}
+          onChange={(e) => {
+            setNewName(e.target.value);
+            setMsg(null);
+          }}
+          placeholder="New character name"
+          className="w-full rounded-md border border-slate-300 px-2 py-1 dark:border-slate-700 dark:bg-slate-800"
+        />
+        <button
+          onClick={() => {
+            setMsg(null);
+            mutation.mutate();
+          }}
+          disabled={!valid || mutation.isPending}
+          className="whitespace-nowrap rounded-md bg-amber-500 px-4 py-1.5 font-medium text-slate-900 hover:bg-amber-400 disabled:opacity-40"
+        >
+          {mutation.isPending ? "Renaming…" : "Rename"}
+        </button>
+      </div>
+      {newName.trim() !== "" && !valid && (
+        <p className="text-xs text-red-600">2–24 letters, and different from the current name.</p>
+      )}
+      {msg && <p className="text-xs text-slate-500">{msg}</p>}
+    </CharCard>
+  );
+}
+
+function MoveCharacter({
+  name,
+  currentAccount,
+  onMoved,
+}: {
+  name: string;
+  currentAccount: string;
+  onMoved: () => void;
+}) {
+  const [toAccount, setToAccount] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () => charactersApi.move(name, toAccount.trim()),
+    onSuccess: (res) => {
+      setMsg(`Moved to ${res.character.accountName} (slot ${res.slot}).`);
+      setToAccount("");
+      onMoved();
+    },
+    onError: (e) => setMsg((e as Error).message),
+  });
+
+  const valid =
+    toAccount.trim() !== "" && toAccount.trim().toLowerCase() !== currentAccount.toLowerCase();
+
+  return (
+    <CharCard title="Move to account">
+      <p className="text-slate-500">
+        Moves this character to another account, keeping its realm and taking the first free slot
+        there. Apply while the player is offline — a running server rewrites a logged-in character on
+        its next save.
+      </p>
+      <div className="flex gap-2">
+        <input
+          value={toAccount}
+          onChange={(e) => {
+            setToAccount(e.target.value);
+            setMsg(null);
+          }}
+          placeholder="Destination account name"
+          className="w-full rounded-md border border-slate-300 px-2 py-1 font-mono dark:border-slate-700 dark:bg-slate-800"
+        />
+        <button
+          onClick={() => {
+            setMsg(null);
+            mutation.mutate();
+          }}
+          disabled={!valid || mutation.isPending}
+          className="whitespace-nowrap rounded-md bg-slate-800 px-4 py-1.5 font-medium text-white hover:bg-slate-700 disabled:opacity-40 dark:bg-slate-700"
+        >
+          {mutation.isPending ? "Moving…" : "Move"}
+        </button>
+      </div>
+      {toAccount.trim() !== "" && !valid && (
+        <p className="text-xs text-red-600">Enter a different account than the current one.</p>
+      )}
+      {msg && <p className="text-xs text-slate-500">{msg}</p>}
+    </CharCard>
   );
 }
 

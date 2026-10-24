@@ -113,6 +113,11 @@ export const accountsApi = {
       method: "PATCH",
       body: JSON.stringify(updates),
     }),
+  rename: (name: string, newName: string) =>
+    apiFetch<{ account: AccountDetail; cascades: { table: string; column: string; updated: number }[] }>(
+      `/accounts/${encodeURIComponent(name)}/rename`,
+      { method: "POST", body: JSON.stringify({ newName }) },
+    ),
 };
 
 // --- Characters ------------------------------------------------------------
@@ -153,6 +158,16 @@ export const charactersApi = {
       method: "PATCH",
       body: JSON.stringify(updates),
     }),
+  rename: (name: string, newName: string) =>
+    apiFetch<{ character: CharacterDetail }>(`/characters/${encodeURIComponent(name)}/rename`, {
+      method: "POST",
+      body: JSON.stringify({ newName }),
+    }),
+  move: (name: string, toAccount: string) =>
+    apiFetch<{ character: CharacterDetail; slot: number }>(
+      `/characters/${encodeURIComponent(name)}/move`,
+      { method: "POST", body: JSON.stringify({ toAccount }) },
+    ),
 };
 
 // --- Bans ------------------------------------------------------------------
