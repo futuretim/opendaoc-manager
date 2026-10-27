@@ -17,6 +17,7 @@ import {
 import {
   REALM_SLOT_BASE,
   SLOTS_PER_REALM,
+  buildCharacterOnlineQuery,
   buildCharactersForAccountQuery,
   buildGetCharacterQuery,
   buildMoveCharacterQuery,
@@ -426,8 +427,8 @@ import {
   EQUIPMENT_SLOT_MAX,
   HOUSE_VAULT_SLOT_MIN,
   HOUSE_VAULT_SLOT_MAX,
-  MONEY_SLOT_MIN,
-  MONEY_SLOT_MAX,
+  HORSE_BAG_SLOT_MIN,
+  HORSE_BAG_SLOT_MAX,
   PERSONAL_VAULT_SLOT_MIN,
   PERSONAL_VAULT_SLOT_MAX,
   buildAccountInventoryQuery,
@@ -436,18 +437,26 @@ import {
   buildGetInventoryItemQuery,
   buildGrantInventoryItemQuery,
   buildGuildInventoryQuery,
-  buildItemTemplateExistsQuery,
+  buildItemTemplateStackQuery,
+  buildOwnerOnlineQuery,
   buildSlotOccupiedQuery,
   buildUpdateInventoryItemQuery,
+  accountNameFromVaultOwnerId,
+  accountVaultOwnerId,
   generateInventoryId,
+  isWritableSlot,
+  maxStackCount,
+  scopeForSlot,
   slotGroupName,
 } from "./inventory.js";
 
 describe("inventory query builders", () => {
-  it("builds a character inventory query covering equipment, backpack, vault, and money", () => {
+  it("builds a character inventory query covering equipment, backpack, horse bags, and vault", () => {
     const q = buildCharacterInventoryQuery("char_123");
     expect(q.text).toContain("FROM Inventory i");
-    expect(q.text).toContain("LEFT JOIN ItemTemplate t ON t.Id_nb = COALESCE(i.UTemplate_Id, i.ITemplate_Id)");
+    expect(q.text).toContain("LEFT JOIN ItemUnique u ON u.Id_nb = i.UTemplate_Id");
+    expect(q.text).toContain("LEFT JOIN ItemTemplate t ON t.Id_nb = i.ITemplate_Id");
+    expect(q.text).toContain("COALESCE(u.Name, t.Name) AS Name");
     expect(q.text).toContain("WHERE i.OwnerID = ?");
     expect(q.values[0]).toBe("char_123");
     // Slot ranges: equipment, backpack, personal vault, money
@@ -457,20 +466,36 @@ describe("inventory query builders", () => {
     expect(q.values).toContain(BACKPACK_SLOT_MAX);
     expect(q.values).toContain(PERSONAL_VAULT_SLOT_MIN);
     expect(q.values).toContain(PERSONAL_VAULT_SLOT_MAX);
-    expect(q.values).toContain(MONEY_SLOT_MIN);
-    expect(q.values).toContain(MONEY_SLOT_MAX);
+    expect(q.values).toContain(HORSE_BAG_SLOT_MIN);
+    expect(q.values).toContain(HORSE_BAG_SLOT_MAX);
+    expect(q.values).not.toContain(500); // money lives in DOLCharacters, not Inventory
   });
 
   it("builds a guild inventory query scoped to house-vault slots", () => {
     const q = buildGuildInventoryQuery("guild_abc");
-    expect(q.text).toContain("WHERE i.OwnerID = ? AND i.SlotPosition >= ? AND i.SlotPosition <= ?");
+    expect(q.text).toContain("WHERE i.OwnerID = ? AND ((i.SlotPosition >= ? AND i.SlotPosition <= ?))");
     expect(q.values).toEqual(["guild_abc", HOUSE_VAULT_SLOT_MIN, HOUSE_VAULT_SLOT_MAX]);
   });
 
-  it("builds an account inventory query with the accountName_realm owner ID", () => {
+  it("builds an account inventory query with the accountName_RealmName owner ID", () => {
     const q = buildAccountInventoryQuery("Alice", 1);
-    expect(q.text).toContain("WHERE i.OwnerID = ? AND i.SlotPosition >= ? AND i.SlotPosition <= ?");
-    expect(q.values).toEqual(["Alice_1", ACCOUNT_VAULT_SLOT_MIN, ACCOUNT_VAULT_SLOT_MAX]);
+    expect(q.text).toContain("WHERE i.OwnerID = ? AND ((i.SlotPosition >= ? AND i.SlotPosition <= ?))");
+    expect(q.values).toEqual(["Alice_Albion", ACCOUNT_VAULT_SLOT_MIN, ACCOUNT_VAULT_SLOT_MAX]);
+  });
+
+  it("builds account vault owner IDs from the eRealm enum name, like OpenDAoC", () => {
+    expect(accountVaultOwnerId("Alice", 1)).toBe("Alice_Albion");
+    expect(accountVaultOwnerId("my_acct", 2)).toBe("my_acct_Midgard");
+    expect(accountVaultOwnerId("Alice", 3)).toBe("Alice_Hibernia");
+    expect(() => accountVaultOwnerId("Alice", 0)).toThrow(/Unknown realm/);
+    expect(accountNameFromVaultOwnerId("my_acct_Midgard")).toBe("my_acct");
+    expect(accountNameFromVaultOwnerId("159f95e2-1717-4e67-babc-b154f99c4f33")).toBeNull();
+  });
+
+  it("selects MaxCharges from the template, not the Inventory row", () => {
+    const q = buildCharacterInventoryQuery("char_123");
+    expect(q.text).toContain("COALESCE(u.MaxCharges, t.MaxCharges) AS MaxCharges");
+    expect(q.text).not.toContain("i.MaxCharges");
   });
 
   it("builds a get-single-item query by Inventory_ID", () => {
@@ -481,7 +506,7 @@ describe("inventory query builders", () => {
 
   it("maps only known updatable inventory fields", () => {
     const q = buildUpdateInventoryItemQuery("inv_1", { slotPosition: 45, count: 10 });
-    expect(q.text).toBe("UPDATE Inventory SET SlotPosition = ?, Count = ? WHERE Inventory_ID = ?");
+    expect(q.text).toBe("UPDATE Inventory SET `SlotPosition` = ?, `Count` = ? WHERE Inventory_ID = ?");
     expect(q.values).toEqual([45, 10, "inv_1"]);
   });
 
@@ -491,8 +516,13 @@ describe("inventory query builders", () => {
       // @ts-expect-error - not an updatable field
       ownerId: "hacker",
     });
-    expect(q.text).toBe("UPDATE Inventory SET SellPrice = ? WHERE Inventory_ID = ?");
+    expect(q.text).toBe("UPDATE Inventory SET `SellPrice` = ? WHERE Inventory_ID = ?");
     expect(q.values).toEqual([100, "inv_1"]);
+  });
+
+  it("backtick-quotes the reserved Condition column in updates", () => {
+    const q = buildUpdateInventoryItemQuery("inv_1", { condition: 100 });
+    expect(q.text).toBe("UPDATE Inventory SET `Condition` = ? WHERE Inventory_ID = ?");
   });
 
   it("throws when there is nothing to update on an inventory item", () => {
@@ -511,10 +541,39 @@ describe("inventory query builders", () => {
     expect(q.values).toEqual(["owner_1", 50]);
   });
 
-  it("builds an item-template existence check", () => {
-    const q = buildItemTemplateExistsQuery("sword_01");
-    expect(q.text).toBe("SELECT Id_nb FROM ItemTemplate WHERE Id_nb = ? LIMIT 1");
+  it("builds an item-template stack lookup", () => {
+    const q = buildItemTemplateStackQuery("sword_01");
+    expect(q.text).toBe("SELECT Id_nb, MaxCount FROM ItemTemplate WHERE Id_nb = ? LIMIT 1");
     expect(q.values).toEqual(["sword_01"]);
+  });
+
+  it("caps counts at 1 for non-stackables and MaxCount for stackables", () => {
+    expect(maxStackCount({ isStackable: false, maxCount: 50 })).toBe(1);
+    expect(maxStackCount({ isStackable: true, maxCount: 50 })).toBe(50);
+    expect(maxStackCount({ isStackable: true, maxCount: 0 })).toBe(1);
+  });
+
+  it("builds an owner-online check over character, guild, and vault owners", () => {
+    const q = buildOwnerOnlineQuery("owner_1", "Alice");
+    expect(q.text).toContain("a.LastLogin > a.LastDisconnected");
+    expect(q.text).toContain("c.DOLCharacters_ID = ? OR c.GuildID = ?");
+    expect(q.values).toEqual(["Alice", "owner_1", "owner_1"]);
+  });
+
+  it("maps slots to scopes and only allows writes to bag and vault slots", () => {
+    expect(scopeForSlot(10)).toBe("character");
+    expect(scopeForSlot(85)).toBe("character");
+    expect(scopeForSlot(1000)).toBe("guild");
+    expect(scopeForSlot(2600)).toBe("account");
+    expect(scopeForSlot(500)).toBeNull();
+    expect(isWritableSlot("character", 40)).toBe(true);
+    expect(isWritableSlot("character", 120)).toBe(true);
+    expect(isWritableSlot("character", 10)).toBe(false); // equipment
+    expect(isWritableSlot("character", 2550)).toBe(false); // account vault range
+    expect(isWritableSlot("guild", 1500)).toBe(true);
+    expect(isWritableSlot("guild", 40)).toBe(false);
+    expect(isWritableSlot("account", 2699)).toBe(true);
+    expect(isWritableSlot("account", 1000)).toBe(false);
   });
 
   it("builds a grant query that inserts from ItemTemplate defaults", () => {
@@ -530,19 +589,20 @@ describe("inventory query builders", () => {
     expect(q.text).toContain("FROM ItemTemplate t WHERE t.Id_nb = ?");
     expect(q.text).toContain("t.MaxCondition");
     expect(q.text).toContain("t.MaxDurability");
+    expect(q.text).toContain("`Condition`");
     expect(q.values).toEqual(["inv_new", "owner_1", "sword_01", 50, 1, 0, "sword_01"]);
   });
 
   it("generates unique inventory IDs", () => {
     const a = generateInventoryId();
     const b = generateInventoryId();
-    expect(a).toMatch(/^inv_/);
-    expect(b).toMatch(/^inv_/);
+    expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     expect(a).not.toBe(b);
   });
 
   it("classifies slot groups correctly", () => {
-    expect(slotGroupName(500)).toBe("Money");
+    expect(slotGroupName(500)).toBe("Other");
+    expect(slotGroupName(80)).toBe("Horse Bags");
     expect(slotGroupName(10)).toBe("Equipped");
     expect(slotGroupName(40)).toBe("Backpack");
     expect(slotGroupName(79)).toBe("Backpack");
@@ -595,6 +655,13 @@ describe("character query builders - stats and money", () => {
     expect(q.values).toContain(100);
     expect(q.values).toContain(1000);
     expect(q.values[q.values.length - 1]).toBe("Hero");
+  });
+
+  it("checks whether a character's account is online", () => {
+    const q = buildCharacterOnlineQuery("Hero");
+    expect(q.text).toContain("JOIN DOLCharacters c ON c.AccountName = a.Name");
+    expect(q.text).toContain("a.LastLogin > a.LastDisconnected");
+    expect(q.values).toEqual(["Hero"]);
   });
 
   it("fetches character detail with guild name subquery", () => {

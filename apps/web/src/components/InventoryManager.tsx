@@ -15,6 +15,8 @@ interface InventoryManagerProps {
   realm: number;
   guildName: string | null;
   guildId: string | null;
+  /** Granting and removing items is admin-only (the API enforces it too). */
+  isAdmin: boolean;
 }
 
 const SCOPE_TABS: { key: InventoryScope; label: string }[] = [
@@ -29,6 +31,7 @@ export function InventoryManager({
   realm,
   guildName,
   guildId,
+  isAdmin,
 }: InventoryManagerProps) {
   const [scope, setScope] = useState<InventoryScope>("character");
   const qc = useQueryClient();
@@ -72,7 +75,7 @@ export function InventoryManager({
       {/* Scope description */}
       <p className="mb-3 text-xs text-slate-400">
         {scope === "character" &&
-          "Equipped gear, backpack, personal vault, and money for this character."}
+          "Equipped gear, backpack, horse bags, and personal vault for this character."}
         {scope === "guild" && hasGuild &&
           `Shared guild vault for ${guildName}. Stored in the guild house vault slots.`}
         {scope === "account" &&
@@ -93,14 +96,17 @@ export function InventoryManager({
           )}
           {data && (
             <>
-              <GrantItemForm
-                characterName={characterName}
-                scope={scope}
-                existingSlots={data.items.map((i) => i.slotPosition)}
-                onGranted={invalidate}
-              />
+              {isAdmin && (
+                <GrantItemForm
+                  characterName={characterName}
+                  scope={scope}
+                  existingSlots={data.items.map((i) => i.slotPosition)}
+                  onGranted={invalidate}
+                />
+              )}
               <ItemTable
                 items={data.items}
+                canRemove={isAdmin}
                 onChanged={invalidate}
               />
             </>
@@ -109,8 +115,9 @@ export function InventoryManager({
       ) : null}
 
       <p className="mt-3 text-xs text-slate-400">
-        Changes write to the game database directly. They apply at the player's next login; if
-        the player is online, the server overwrites them on the next save.
+        Changes write to the game database directly and apply at the player's next login. They
+        are refused while the player (or, for the guild vault, any guild member) is online, since
+        the server would overwrite them. Items can be placed in bags and vaults, not equipment slots.
       </p>
     </section>
   );
@@ -118,9 +125,11 @@ export function InventoryManager({
 
 function ItemTable({
   items,
+  canRemove,
   onChanged,
 }: {
   items: InventoryItem[];
+  canRemove: boolean;
   onChanged: () => void;
 }) {
   const [editing, setEditing] = useState<string | null>(null);
@@ -271,17 +280,19 @@ function ItemTable({
                           >
                             Edit
                           </button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`Remove "${item.name}" from inventory?`)) {
-                                deleteMutation.mutate(item);
-                              }
-                            }}
-                            disabled={deleteMutation.isPending}
-                            className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-700 hover:bg-red-200 disabled:opacity-40 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
-                          >
-                            Remove
-                          </button>
+                          {canRemove && (
+                            <button
+                              onClick={() => {
+                                if (confirm(`Remove "${item.name}" from inventory?`)) {
+                                  deleteMutation.mutate(item);
+                                }
+                              }}
+                              disabled={deleteMutation.isPending}
+                              className="rounded bg-red-100 px-2 py-0.5 text-xs text-red-700 hover:bg-red-200 disabled:opacity-40 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
+                            >
+                              Remove
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>
@@ -473,16 +484,16 @@ function groupBySlot(items: InventoryItem[]): [string, InventoryItem[]][] {
     groups.get(name)!.push(item);
   }
   // Sort groups by their minimum slot
-  const order = ["Money", "Equipped", "Backpack", "Personal Vault", "Guild Vault", "Account Vault", "Other"];
+  const order = ["Equipped", "Backpack", "Horse Bags", "Personal Vault", "Guild Vault", "Account Vault", "Other"];
   return [...groups.entries()].sort(
     (a, b) => order.indexOf(a[0]) - order.indexOf(b[0]),
   );
 }
 
 function slotGroupLabel(slot: number): string {
-  if (slot >= 500 && slot <= 504) return "Money";
   if (slot >= 7 && slot <= 37) return "Equipped";
   if (slot >= 40 && slot <= 79) return "Backpack";
+  if (slot >= 80 && slot <= 95) return "Horse Bags";
   if (slot >= 110 && slot <= 149) return "Personal Vault";
   if (slot >= 1000 && slot <= 1799) return "Guild Vault";
   if (slot >= 2500 && slot <= 2699) return "Account Vault";

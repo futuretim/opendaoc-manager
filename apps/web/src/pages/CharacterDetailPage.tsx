@@ -64,6 +64,7 @@ export function CharacterDetailPage() {
         realm={c.realm}
         guildName={c.guildName}
         guildId={c.guildId}
+        isAdmin={isAdmin}
       />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -299,8 +300,8 @@ function EditProgression({
         </div>
 
         <p className="text-xs text-slate-400">
-          Writes the character row directly. Changes apply at the player's next login; if they are
-          online, the server overwrites them on the character's next save.
+          Writes the character row directly. Changes apply at the player's next login, and are
+          refused while the player is online (the server would overwrite them on its next save).
         </p>
       </div>
     </section>
