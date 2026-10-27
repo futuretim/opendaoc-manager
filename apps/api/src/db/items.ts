@@ -63,7 +63,7 @@ const DETAIL_COLUMNS =
   SUMMARY_COLUMNS +
   ", Description, Model, Weight, Hand, Type_Damage, Bonus, BonusLevel, ExtraBonus, ExtraBonusType, " +
   "Durability, MaxDurability, `Condition`, MaxCondition, IsIndestructible, IsNotLosingDur, " +
-  "IsPickable, IsDropable, CanDropAsLoot, IsTradable, IsStackable, MaxCount, PackSize, Price, " +
+  "IsPickable, IsDropable, CanDropAsLoot, IsTradable, (MaxCount > 1) AS IsStackable, MaxCount, PackSize, Price, " +
   "LevelRequirement, AllowedClasses, Flags, Color, Emblem, Effect, Charges, MaxCharges, " +
   "Charges1, MaxCharges1, CanUseEvery, PoisonSpellID, PoisonCharges, PoisonMaxCharges, " +
   "PackageID, ClassType, SalvageYieldID";

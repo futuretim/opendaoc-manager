@@ -262,6 +262,12 @@ describe("item query builders", () => {
     expect(q.text).toMatch(/WHERE Id_nb = \? LIMIT 1$/);
     expect(q.values).toEqual(["my_item"]);
   });
+
+  it("derives IsStackable from MaxCount (ItemTemplate has no such column)", () => {
+    const q = buildGetItemQuery("my_item");
+    expect(q.text).toContain("(MaxCount > 1) AS IsStackable");
+    expect(q.text).not.toMatch(/,\s*IsStackable,/);
+  });
 });
 
 describe("mob query builders", () => {
