@@ -13,7 +13,7 @@ import {
   type UpdatableCharacterField,
 } from "../db/characters.js";
 
-// DAoC character names are letters only, 2–24 chars.
+// DAoC character names are letters only, 2-24 chars.
 const characterNameSchema = z
   .string()
   .trim()
@@ -31,15 +31,37 @@ const listQuery = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
 });
 
-// DAoC progression ceilings. Level caps at 50; realm level is the 0-based
-// RealmLevel column (RR1L0 == 0 … RR13L0 == 120). Points are unsigned ints.
+// DAoC progression + stat ceilings. Level caps at 50; realm level is the
+// 0-based RealmLevel column (RR1L0 == 0 ... RR13L0 == 120). Points are
+// unsigned ints. Stats are small ints (0-255 practical, but column allows
+// full int range). Money columns are int (copper/silver/gold/platinum/mithril).
 const MAX_POINTS = 2_000_000_000;
+const MAX_STAT = 1_000_000;
+const MAX_MONEY = 2_000_000_000;
+const MAX_VITAL = 100_000;
+
 const patchBody = z
   .object({
     level: z.number().int().min(1).max(50).optional(),
     realmLevel: z.number().int().min(0).max(120).optional(),
     realmPoints: z.number().int().min(0).max(MAX_POINTS).optional(),
     bountyPoints: z.number().int().min(0).max(MAX_POINTS).optional(),
+    strength: z.number().int().min(0).max(MAX_STAT).optional(),
+    dexterity: z.number().int().min(0).max(MAX_STAT).optional(),
+    constitution: z.number().int().min(0).max(MAX_STAT).optional(),
+    quickness: z.number().int().min(0).max(MAX_STAT).optional(),
+    intelligence: z.number().int().min(0).max(MAX_STAT).optional(),
+    piety: z.number().int().min(0).max(MAX_STAT).optional(),
+    empathy: z.number().int().min(0).max(MAX_STAT).optional(),
+    charisma: z.number().int().min(0).max(MAX_STAT).optional(),
+    health: z.number().int().min(0).max(MAX_VITAL).optional(),
+    mana: z.number().int().min(0).max(MAX_VITAL).optional(),
+    endurance: z.number().int().min(0).max(MAX_VITAL).optional(),
+    copper: z.number().int().min(0).max(MAX_MONEY).optional(),
+    silver: z.number().int().min(0).max(MAX_MONEY).optional(),
+    gold: z.number().int().min(0).max(MAX_MONEY).optional(),
+    platinum: z.number().int().min(0).max(MAX_MONEY).optional(),
+    mithril: z.number().int().min(0).max(MAX_MONEY).optional(),
   })
   .refine((o) => Object.keys(o).length > 0, { message: "No fields to update" });
 

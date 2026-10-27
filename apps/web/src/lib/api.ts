@@ -137,6 +137,25 @@ export interface CharacterDetail extends CharacterSummary {
   realmLevel: number;
   realmPoints: number;
   bountyPoints: number;
+  strength: number;
+  dexterity: number;
+  constitution: number;
+  quickness: number;
+  intelligence: number;
+  piety: number;
+  empathy: number;
+  charisma: number;
+  health: number;
+  mana: number;
+  endurance: number;
+  copper: number;
+  silver: number;
+  gold: number;
+  platinum: number;
+  mithril: number;
+  guildId: string | null;
+  guildName: string | null;
+  guildRank: number;
 }
 
 export interface CharacterUpdate {
@@ -144,6 +163,22 @@ export interface CharacterUpdate {
   realmLevel?: number;
   realmPoints?: number;
   bountyPoints?: number;
+  strength?: number;
+  dexterity?: number;
+  constitution?: number;
+  quickness?: number;
+  intelligence?: number;
+  piety?: number;
+  empathy?: number;
+  charisma?: number;
+  health?: number;
+  mana?: number;
+  endurance?: number;
+  copper?: number;
+  silver?: number;
+  gold?: number;
+  platinum?: number;
+  mithril?: number;
 }
 
 export const charactersApi = {
@@ -167,6 +202,108 @@ export const charactersApi = {
     apiFetch<{ character: CharacterDetail; slot: number }>(
       `/characters/${encodeURIComponent(name)}/move`,
       { method: "POST", body: JSON.stringify({ toAccount }) },
+    ),
+};
+
+// --- Inventory -------------------------------------------------------------
+
+export type InventoryScope = "character" | "guild" | "account";
+
+export interface InventoryItem {
+  inventoryId: string;
+  ownerId: string;
+  slotPosition: number;
+  count: number;
+  itemTemplateId: string | null;
+  itemUniqueId: string | null;
+  name: string;
+  level: number;
+  quality: number;
+  objectType: number;
+  itemType: number;
+  dpsAf: number;
+  spdAbs: number;
+  weight: number;
+  model: number;
+  color: number;
+  emblem: number;
+  condition: number;
+  durability: number;
+  maxCondition: number;
+  maxDurability: number;
+  isStackable: boolean;
+  maxCount: number;
+  price: number;
+  sellPrice: number;
+  isCrafted: boolean;
+  creator: string | null;
+  charges: number;
+  maxCharges: number;
+  description: string;
+  realm: number;
+}
+
+export interface InventoryListResponse {
+  scope: InventoryScope;
+  ownerId: string;
+  guildName?: string;
+  accountName?: string;
+  items: InventoryItem[];
+}
+
+export interface InventoryItemUpdate {
+  slotPosition?: number;
+  count?: number;
+  sellPrice?: number;
+  color?: number;
+  emblem?: number;
+  condition?: number;
+  durability?: number;
+  charges?: number;
+}
+
+export interface InventoryGrant {
+  scope: InventoryScope;
+  itemTemplateId: string;
+  slotPosition: number;
+  count?: number;
+  sellPrice?: number;
+}
+
+export interface CharacterGuildInfo {
+  guild: {
+    guildId: string;
+    guildName: string | null;
+    realm: number;
+    guildLevel: number;
+    guildRank: number;
+  } | null;
+}
+
+export const inventoryApi = {
+  list: (characterName: string, scope: InventoryScope) =>
+    apiFetch<InventoryListResponse>(
+      `/characters/${encodeURIComponent(characterName)}/inventory${qs({ scope })}`,
+    ),
+  get: (inventoryId: string) =>
+    apiFetch<{ item: InventoryItem }>(`/inventory/${encodeURIComponent(inventoryId)}`),
+  update: (inventoryId: string, updates: InventoryItemUpdate) =>
+    apiFetch<{ item: InventoryItem }>(`/inventory/${encodeURIComponent(inventoryId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    }),
+  remove: (inventoryId: string) =>
+    apiFetch<{ ok: true }>(`/inventory/${encodeURIComponent(inventoryId)}`, { method: "DELETE" }),
+  grant: (characterName: string, grant: InventoryGrant) =>
+    apiFetch<{ item: InventoryItem }>(`/characters/${encodeURIComponent(characterName)}/inventory/grant`, {
+      method: "POST",
+      body: JSON.stringify(grant),
+    }),
+  guildInfo: (characterName: string) =>
+    apiFetch<CharacterGuildInfo>(`/characters/${encodeURIComponent(characterName)}/guild`),
+  accountVaultInfo: (characterName: string) =>
+    apiFetch<{ accountName: string; realm: number; ownerId: string; vaultCount: number; vaultSize: number }>(
+      `/characters/${encodeURIComponent(characterName)}/account-vault-info`,
     ),
 };
 

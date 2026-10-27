@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { InventoryManager } from "../components/InventoryManager";
 import {
   charactersApi,
   className,
@@ -32,6 +33,8 @@ export function CharacterDetailPage() {
     ["Class", className(c.class)],
     ["Race", raceName(c.race)],
     ["Account slot", c.accountSlot],
+    ["Guild", c.guildName ?? "—"],
+    ["Guild rank", c.guildId ? c.guildRank : "—"],
     ["Last played", c.lastPlayed ?? "—"],
   ];
 
@@ -44,12 +47,26 @@ export function CharacterDetailPage() {
         <h1 className="mt-1 text-xl font-semibold">{c.name}</h1>
         <p className="text-sm text-slate-500">
           {className(c.class)} · {raceName(c.race)} · Realm {REALM_NAMES[c.realm] ?? c.realm}
+          {c.guildName ? ` · ${c.guildName}` : ""}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <EditCharacter character={c} onSaved={refetch} />
+        <EditProgression character={c} onSaved={refetch} />
+        <EditStats character={c} onSaved={refetch} />
+      </div>
 
+      <EditMoney character={c} onSaved={refetch} />
+
+      <InventoryManager
+        characterName={c.name}
+        accountName={c.accountName}
+        realm={c.realm}
+        guildName={c.guildName}
+        guildId={c.guildId}
+      />
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
           <table className="w-full text-left text-sm">
             <tbody>
@@ -72,6 +89,8 @@ export function CharacterDetailPage() {
             </tbody>
           </table>
         </section>
+
+        <VitalsDisplay character={c} />
       </div>
 
       {isAdmin && (
@@ -203,7 +222,7 @@ function MoveCharacter({
   );
 }
 
-function EditCharacter({
+function EditProgression({
   character,
   onSaved,
 }: {
@@ -288,6 +307,245 @@ function EditCharacter({
   );
 }
 
+function EditStats({
+  character,
+  onSaved,
+}: {
+  character: CharacterDetail;
+  onSaved: () => void;
+}) {
+  const [strength, setStrength] = useState(character.strength);
+  const [dexterity, setDexterity] = useState(character.dexterity);
+  const [constitution, setConstitution] = useState(character.constitution);
+  const [quickness, setQuickness] = useState(character.quickness);
+  const [intelligence, setIntelligence] = useState(character.intelligence);
+  const [piety, setPiety] = useState(character.piety);
+  const [empathy, setEmpathy] = useState(character.empathy);
+  const [charisma, setCharisma] = useState(character.charisma);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setStrength(character.strength);
+    setDexterity(character.dexterity);
+    setConstitution(character.constitution);
+    setQuickness(character.quickness);
+    setIntelligence(character.intelligence);
+    setPiety(character.piety);
+    setEmpathy(character.empathy);
+    setCharisma(character.charisma);
+  }, [character]);
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      charactersApi.update(character.name, {
+        strength,
+        dexterity,
+        constitution,
+        quickness,
+        intelligence,
+        piety,
+        empathy,
+        charisma,
+      }),
+    onSuccess: () => {
+      setMsg("Saved.");
+      onSaved();
+    },
+    onError: (e) => setMsg((e as Error).message),
+  });
+
+  const stats: [string, number, (v: number) => void][] = [
+    ["Strength", strength, setStrength],
+    ["Dexterity", dexterity, setDexterity],
+    ["Constitution", constitution, setConstitution],
+    ["Quickness", quickness, setQuickness],
+    ["Intelligence", intelligence, setIntelligence],
+    ["Piety", piety, setPiety],
+    ["Empathy", empathy, setEmpathy],
+    ["Charisma", charisma, setCharisma],
+  ];
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <h2 className="mb-3 font-semibold">Base stats</h2>
+      <div className="space-y-3 text-sm">
+        <div className="grid grid-cols-2 gap-3">
+          {stats.map(([label, value, onChange]) => (
+            <NumberField key={label} label={label} min={0} value={value} onChange={onChange} />
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setMsg(null);
+              mutation.mutate();
+            }}
+            disabled={mutation.isPending}
+            className="rounded-md bg-amber-500 px-4 py-1.5 font-medium text-slate-900 hover:bg-amber-400 disabled:opacity-60"
+          >
+            {mutation.isPending ? "Saving…" : "Save"}
+          </button>
+          {msg && <span className="text-slate-500">{msg}</span>}
+        </div>
+
+        <p className="text-xs text-slate-400">
+          Base stats without buffs or gear. Applied at the player's next login.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function EditMoney({
+  character,
+  onSaved,
+}: {
+  character: CharacterDetail;
+  onSaved: () => void;
+}) {
+  const [copper, setCopper] = useState(character.copper);
+  const [silver, setSilver] = useState(character.silver);
+  const [gold, setGold] = useState(character.gold);
+  const [platinum, setPlatinum] = useState(character.platinum);
+  const [mithril, setMithril] = useState(character.mithril);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCopper(character.copper);
+    setSilver(character.silver);
+    setGold(character.gold);
+    setPlatinum(character.platinum);
+    setMithril(character.mithril);
+  }, [character]);
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      charactersApi.update(character.name, {
+        copper,
+        silver,
+        gold,
+        platinum,
+        mithril,
+      }),
+    onSuccess: () => {
+      setMsg("Saved.");
+      onSaved();
+    },
+    onError: (e) => setMsg((e as Error).message),
+  });
+
+  const totalCopper =
+    copper + silver * 100 + gold * 10000 + platinum * 1000000 + mithril * 100000000;
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <h2 className="mb-3 font-semibold">Money &amp; vitals</h2>
+      <div className="space-y-3 text-sm">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <NumberField label="Copper" min={0} value={copper} onChange={setCopper} wide />
+          <NumberField label="Silver" min={0} value={silver} onChange={setSilver} wide />
+          <NumberField label="Gold" min={0} value={gold} onChange={setGold} wide />
+          <NumberField label="Platinum" min={0} value={platinum} onChange={setPlatinum} wide />
+          <NumberField label="Mithril" min={0} value={mithril} onChange={setMithril} wide />
+        </div>
+        <p className="text-xs text-slate-400">
+          Total: {formatMoney(totalCopper)}
+        </p>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <NumberField
+            label="Health"
+            min={0}
+            value={character.health}
+            onChange={() => {}}
+            readOnly
+          />
+          <NumberField
+            label="Mana"
+            min={0}
+            value={character.mana}
+            onChange={() => {}}
+            readOnly
+          />
+          <NumberField
+            label="Endurance"
+            min={0}
+            value={character.endurance}
+            onChange={() => {}}
+            readOnly
+          />
+        </div>
+        <p className="text-xs text-slate-400">
+          Health/mana/endurance are the character's current vitals (read-only here; the server
+          recalculates max values from stats and gear at login).
+        </p>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setMsg(null);
+              mutation.mutate();
+            }}
+            disabled={mutation.isPending}
+            className="rounded-md bg-amber-500 px-4 py-1.5 font-medium text-slate-900 hover:bg-amber-400 disabled:opacity-60"
+          >
+            {mutation.isPending ? "Saving…" : "Save money"}
+          </button>
+          {msg && <span className="text-slate-500">{msg}</span>}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function VitalsDisplay({ character }: { character: CharacterDetail }) {
+  const rows: [string, string | number][] = [
+    ["Health", character.health],
+    ["Mana", character.mana],
+    ["Endurance", character.endurance],
+    ["Strength", character.strength],
+    ["Dexterity", character.dexterity],
+    ["Constitution", character.constitution],
+    ["Quickness", character.quickness],
+    ["Intelligence", character.intelligence],
+    ["Piety", character.piety],
+    ["Empathy", character.empathy],
+    ["Charisma", character.charisma],
+  ];
+  return (
+    <section className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
+      <table className="w-full text-left text-sm">
+        <tbody>
+          {rows.map(([label, value]) => (
+            <tr key={label} className="border-t border-slate-100 first:border-t-0 dark:border-slate-800">
+              <th className="w-40 bg-slate-50 px-4 py-2 font-medium text-slate-500 dark:bg-slate-900">
+                {label}
+              </th>
+              <td className="px-4 py-2">{value}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function formatMoney(copper: number): string {
+  const mithril = Math.floor(copper / 100000000);
+  const platinum = Math.floor((copper % 100000000) / 1000000);
+  const gold = Math.floor((copper % 1000000) / 10000);
+  const silver = Math.floor((copper % 10000) / 100);
+  const c = copper % 100;
+  const parts: string[] = [];
+  if (mithril > 0) parts.push(`${mithril}m`);
+  if (platinum > 0) parts.push(`${platinum}p`);
+  if (gold > 0) parts.push(`${gold}g`);
+  if (silver > 0) parts.push(`${silver}s`);
+  if (c > 0 || parts.length === 0) parts.push(`${c}c`);
+  return parts.join(" ");
+}
+
 function NumberField({
   label,
   value,
@@ -295,6 +553,7 @@ function NumberField({
   min,
   max,
   wide,
+  readOnly,
 }: {
   label: string;
   value: number;
@@ -302,6 +561,7 @@ function NumberField({
   min?: number;
   max?: number;
   wide?: boolean;
+  readOnly?: boolean;
 }) {
   return (
     <label className="flex items-center justify-between gap-3">
@@ -311,8 +571,9 @@ function NumberField({
         min={min}
         max={max}
         value={value}
+        readOnly={readOnly}
         onChange={(e) => onChange(Number(e.target.value))}
-        className={`${wide ? "w-32" : "w-24"} rounded-md border border-slate-300 px-2 py-1 dark:border-slate-700 dark:bg-slate-800`}
+        className={`${wide ? "w-32" : "w-24"} rounded-md border border-slate-300 px-2 py-1 ${readOnly ? "bg-slate-100 text-slate-400 dark:bg-slate-800" : "dark:bg-slate-800"} dark:border-slate-700`}
       />
     </label>
   );

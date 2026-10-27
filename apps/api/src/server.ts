@@ -14,6 +14,7 @@ import { deathXpLossRoutes } from "./routes/deathXpLoss.js";
 import { economyRoutes } from "./routes/economy.js";
 import { geographyRoutes } from "./routes/geography.js";
 import { healthRoutes } from "./routes/health.js";
+import { inventoryRoutes } from "./routes/inventory.js";
 import { itemRoutes } from "./routes/items.js";
 import { npcRoutes } from "./routes/npcs.js";
 import { questRoutes } from "./routes/quests.js";
@@ -66,6 +67,7 @@ export async function buildServer(): Promise<FastifyInstance> {
         await banRoutes(secure);
         await questRoutes(secure);
         await itemRoutes(secure);
+        await inventoryRoutes(secure);
         await npcRoutes(secure);
         await economyRoutes(secure);
         await abilityRoutes(secure);

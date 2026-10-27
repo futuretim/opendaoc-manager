@@ -17,10 +17,36 @@ export interface CharacterDetail extends CharacterSummary {
   realmLevel: number;
   realmPoints: number;
   bountyPoints: number;
+  strength: number;
+  dexterity: number;
+  constitution: number;
+  quickness: number;
+  intelligence: number;
+  piety: number;
+  empathy: number;
+  charisma: number;
+  health: number;
+  mana: number;
+  endurance: number;
+  copper: number;
+  silver: number;
+  gold: number;
+  platinum: number;
+  mithril: number;
+  guildId: string | null;
+  guildName: string | null;
+  guildRank: number;
 }
 
 const SUMMARY_COLUMNS = "Name, AccountName, Level, Class, Race, Realm, LastPlayed";
-const DETAIL_COLUMNS = `${SUMMARY_COLUMNS}, AccountSlot, RealmLevel, RealmPoints, BountyPoints`;
+const DETAIL_COLUMNS =
+  `${SUMMARY_COLUMNS}, AccountSlot, RealmLevel, RealmPoints, BountyPoints, ` +
+  `Strength, Dexterity, Constitution, Quickness, Intelligence, Piety, Empathy, Charisma, ` +
+  `Health, Mana, Endurance, Copper, Silver, Gold, Platinum, Mithril, ` +
+  `GuildID, GuildRank`;
+const DETAIL_COLUMNS_WITH_GUILD =
+  `${DETAIL_COLUMNS}, ` +
+  `(SELECT g.GuildName FROM Guild g WHERE g.GuildID = DOLCharacters.GuildID LIMIT 1) AS GuildName`;
 
 export function buildSearchCharactersQuery(params: {
   q?: string;
@@ -52,7 +78,7 @@ export function buildSearchCharactersQuery(params: {
 
 export function buildGetCharacterQuery(name: string): Sql {
   return {
-    text: `SELECT ${DETAIL_COLUMNS} FROM DOLCharacters WHERE Name = ? LIMIT 1`,
+    text: `SELECT ${DETAIL_COLUMNS_WITH_GUILD} FROM DOLCharacters WHERE Name = ? LIMIT 1`,
     values: [name],
   };
 }
@@ -70,6 +96,22 @@ export const UPDATABLE_CHARACTER_FIELDS = {
   realmLevel: "RealmLevel",
   realmPoints: "RealmPoints",
   bountyPoints: "BountyPoints",
+  strength: "Strength",
+  dexterity: "Dexterity",
+  constitution: "Constitution",
+  quickness: "Quickness",
+  intelligence: "Intelligence",
+  piety: "Piety",
+  empathy: "Empathy",
+  charisma: "Charisma",
+  health: "Health",
+  mana: "Mana",
+  endurance: "Endurance",
+  copper: "Copper",
+  silver: "Silver",
+  gold: "Gold",
+  platinum: "Platinum",
+  mithril: "Mithril",
 } as const;
 
 export type UpdatableCharacterField = keyof typeof UPDATABLE_CHARACTER_FIELDS;
@@ -108,6 +150,25 @@ interface CharacterRow extends RowDataPacket {
   RealmLevel?: number;
   RealmPoints?: number;
   BountyPoints?: number;
+  Strength?: number;
+  Dexterity?: number;
+  Constitution?: number;
+  Quickness?: number;
+  Intelligence?: number;
+  Piety?: number;
+  Empathy?: number;
+  Charisma?: number;
+  Health?: number;
+  Mana?: number;
+  Endurance?: number;
+  Copper?: number;
+  Silver?: number;
+  Gold?: number;
+  Platinum?: number;
+  Mithril?: number;
+  GuildID?: string | null;
+  GuildRank?: number;
+  GuildName?: string | null;
 }
 
 function toSummary(r: CharacterRow): CharacterSummary {
@@ -144,7 +205,34 @@ export async function getCharacter(name: string): Promise<CharacterDetail | null
     realmLevel: Number(r.RealmLevel ?? 0),
     realmPoints: Number(r.RealmPoints ?? 0),
     bountyPoints: Number(r.BountyPoints ?? 0),
+    strength: Number(r.Strength ?? 0),
+    dexterity: Number(r.Dexterity ?? 0),
+    constitution: Number(r.Constitution ?? 0),
+    quickness: Number(r.Quickness ?? 0),
+    intelligence: Number(r.Intelligence ?? 0),
+    piety: Number(r.Piety ?? 0),
+    empathy: Number(r.Empathy ?? 0),
+    charisma: Number(r.Charisma ?? 0),
+    health: Number(r.Health ?? 0),
+    mana: Number(r.Mana ?? 0),
+    endurance: Number(r.Endurance ?? 0),
+    copper: Number(r.Copper ?? 0),
+    silver: Number(r.Silver ?? 0),
+    gold: Number(r.Gold ?? 0),
+    platinum: Number(r.Platinum ?? 0),
+    mithril: Number(r.Mithril ?? 0),
+    guildId: r.GuildID ?? null,
+    guildName: r.GuildName ?? null,
+    guildRank: Number(r.GuildRank ?? 0),
   };
+}
+
+export async function getCharacterId(name: string): Promise<string | null> {
+  const [rows] = await gameDb.query<(RowDataPacket & { DOLCharacters_ID: string })[]>(
+    "SELECT DOLCharacters_ID FROM DOLCharacters WHERE Name = ? LIMIT 1",
+    [name],
+  );
+  return rows[0]?.DOLCharacters_ID ?? null;
 }
 
 export async function charactersForAccount(accountName: string): Promise<CharacterSummary[]> {
