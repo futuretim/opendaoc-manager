@@ -249,6 +249,27 @@ export async function characterExists(name: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+/**
+ * Is this character's account logged in? OpenDAoC stamps account.LastLogin on
+ * login and LastDisconnected on disconnect. While the player is online the
+ * server holds the character in memory and overwrites DB edits on its next save.
+ */
+export function buildCharacterOnlineQuery(name: string): Sql {
+  return {
+    text:
+      "SELECT a.Name FROM account a JOIN DOLCharacters c ON c.AccountName = a.Name " +
+      "WHERE c.Name = ? AND a.LastLogin IS NOT NULL " +
+      "AND (a.LastDisconnected IS NULL OR a.LastLogin > a.LastDisconnected) LIMIT 1",
+    values: [name],
+  };
+}
+
+export async function isCharacterOnline(name: string): Promise<boolean> {
+  const { text, values } = buildCharacterOnlineQuery(name);
+  const [rows] = await gameDb.query<RowDataPacket[]>(text, values);
+  return rows.length > 0;
+}
+
 export async function updateCharacter(
   name: string,
   updates: Partial<Record<UpdatableCharacterField, unknown>>,

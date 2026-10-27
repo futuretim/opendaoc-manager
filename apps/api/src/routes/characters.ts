@@ -6,6 +6,7 @@ import { getAccount } from "../db/accounts.js";
 import {
   characterExists,
   getCharacter,
+  isCharacterOnline,
   moveCharacter,
   renameCharacter,
   searchCharacters,
@@ -97,6 +98,17 @@ export async function characterRoutes(app: FastifyInstance): Promise<void> {
 
     if (!(await characterExists(name))) {
       return reply.code(404).send({ error: { code: "not_found", message: "Character not found." } });
+    }
+
+    if (await isCharacterOnline(name)) {
+      return reply.code(409).send({
+        error: {
+          code: "player_online",
+          message:
+            "This character's player is online. The game server would overwrite the change on its " +
+            "next save; try again once they have logged out.",
+        },
+      });
     }
 
     await updateCharacter(name, parsed.data as Partial<Record<UpdatableCharacterField, unknown>>);

@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { RowDataPacket, ResultSetHeader } from "mysql2";
 import { gameDb } from "./gameDb.js";
 import type { Sql } from "./accounts.js";
@@ -12,6 +13,9 @@ export const EQUIPMENT_SLOT_MAX = 37;
 /** Personal backpack. */
 export const BACKPACK_SLOT_MIN = 40;
 export const BACKPACK_SLOT_MAX = 79;
+/** Horse saddlebags (FirstBagHorse-LastBagHorse). */
+export const HORSE_BAG_SLOT_MIN = 80;
+export const HORSE_BAG_SLOT_MAX = 95;
 /** Personal vault (slots 110-149), opened at a personal vault keeper. */
 export const PERSONAL_VAULT_SLOT_MIN = 110;
 export const PERSONAL_VAULT_SLOT_MAX = 149;
@@ -24,11 +28,72 @@ export const ACCOUNT_VAULT_SLOT_MAX = 2699;
 export const ACCOUNT_VAULTS = 2;
 export const VAULT_SIZE = 100;
 
-/** Money pseudo-slots stored as inventory rows (client 1.78+). */
-export const MONEY_SLOT_MIN = 500;
-export const MONEY_SLOT_MAX = 504;
+// Money is NOT stored in Inventory: OpenDAoC keeps it in the DOLCharacters
+// Copper/Silver/Gold/Platinum/Mithril columns (see characters.ts).
 
 export type InventoryScope = "character" | "guild" | "account";
+
+type SlotRange = readonly [min: number, max: number];
+
+/** Slot ranges each scope lists. */
+export const SCOPE_SLOT_RANGES: Record<InventoryScope, readonly SlotRange[]> = {
+  character: [
+    [EQUIPMENT_SLOT_MIN, EQUIPMENT_SLOT_MAX],
+    [BACKPACK_SLOT_MIN, BACKPACK_SLOT_MAX],
+    [HORSE_BAG_SLOT_MIN, HORSE_BAG_SLOT_MAX],
+    [PERSONAL_VAULT_SLOT_MIN, PERSONAL_VAULT_SLOT_MAX],
+  ],
+  guild: [[HOUSE_VAULT_SLOT_MIN, HOUSE_VAULT_SLOT_MAX]],
+  account: [[ACCOUNT_VAULT_SLOT_MIN, ACCOUNT_VAULT_SLOT_MAX]],
+};
+
+/**
+ * Slot ranges an item may be placed into (grant or move). Equipment slots are
+ * excluded: the game validates item type per equipment slot and the console
+ * doesn't, so staff can only put items into bags and vaults. Moving an
+ * equipped item OUT to a bag is allowed.
+ */
+export const WRITABLE_SLOT_RANGES: Record<InventoryScope, readonly SlotRange[]> = {
+  character: SCOPE_SLOT_RANGES.character.filter(([min]) => min !== EQUIPMENT_SLOT_MIN),
+  guild: SCOPE_SLOT_RANGES.guild,
+  account: SCOPE_SLOT_RANGES.account,
+};
+
+const inRanges = (slot: number, ranges: readonly SlotRange[]): boolean =>
+  ranges.some(([min, max]) => slot >= min && slot <= max);
+
+/** The scope a slot belongs to, or null for slots the console doesn't manage. */
+export function scopeForSlot(slot: number): InventoryScope | null {
+  for (const scope of Object.keys(SCOPE_SLOT_RANGES) as InventoryScope[]) {
+    if (inRanges(slot, SCOPE_SLOT_RANGES[scope])) return scope;
+  }
+  return null;
+}
+
+/** Whether an item may be granted or moved into `slot` within `scope`. */
+export function isWritableSlot(scope: InventoryScope, slot: number): boolean {
+  return inRanges(slot, WRITABLE_SLOT_RANGES[scope]);
+}
+
+/** OpenDAoC eRealm names; the account vault owner ID uses the enum name. */
+const REALM_ENUM_NAMES: Record<number, string> = { 1: "Albion", 2: "Midgard", 3: "Hibernia" };
+
+/**
+ * Account vault owner ID, as OpenDAoC's AccountVaultKeeper.BuildOwnerId builds
+ * it: `$"{Account.Name}_{player.Realm}"`, where Realm is the eRealm enum, so
+ * the suffix is the realm NAME (`Alice_Albion`), not its number.
+ */
+export function accountVaultOwnerId(accountName: string, realm: number): string {
+  const realmName = REALM_ENUM_NAMES[realm];
+  if (!realmName) throw new Error(`Unknown realm ${realm}`);
+  return `${accountName}_${realmName}`;
+}
+
+/** Inverse of accountVaultOwnerId: the account name, or null if not a vault owner ID. */
+export function accountNameFromVaultOwnerId(ownerId: string): string | null {
+  const m = /^(.+)_(Albion|Midgard|Hibernia)$/.exec(ownerId);
+  return m ? m[1]! : null;
+}
 
 export interface InventoryItem {
   inventoryId: string;
@@ -74,72 +139,60 @@ export interface InventoryPage {
 // Query builders (pure - unit-testable without a database connection).
 // ---------------------------------------------------------------------------
 
-const ITEM_COLUMNS = `
-  i.Inventory_ID, i.OwnerID, i.SlotPosition, i.Count,
-  i.ITemplate_Id, i.UTemplate_Id, i.SellPrice,
-  i.Color, i.Emblem, i.Condition, i.Durability,
-  i.Charges, i.MaxCharges, i.IsCrafted, i.Creator,
-  t.Name, t.Level, t.Quality, t.Object_Type, t.Item_Type,
-  t.DPS_AF, t.SPD_ABS, t.Weight, t.Model,
-  t.MaxCondition, t.MaxDurability, t.IsStackable, t.MaxCount,
-  t.Price, t.Description, t.Realm
-`;
+// An Inventory row points at either a shared ItemTemplate (ITemplate_Id) or a
+// per-item ItemUnique row (UTemplate_Id: crafted, generated and most looted
+// items), and both tables have the same item columns, so each template column
+// is read from whichever one matched.
+const TEMPLATE_COLUMNS = [
+  "Name", "Level", "Quality", "Object_Type", "Item_Type", "DPS_AF", "SPD_ABS", "Weight",
+  "Model", "MaxCondition", "MaxDurability", "MaxCharges", "MaxCount", "Price",
+  "Description", "Realm",
+];
+
+// Condition is a reserved word in MariaDB/MySQL; it only works unquoted when
+// table-qualified (i.Condition). Unqualified uses must be backtick-quoted.
+// Neither template table has IsStackable: OpenDAoC derives it as MaxCount > 1.
+const ITEM_COLUMNS = [
+  "i.Inventory_ID, i.OwnerID, i.SlotPosition, i.Count",
+  "i.ITemplate_Id, i.UTemplate_Id, i.SellPrice",
+  "i.Color, i.Emblem, i.Condition, i.Durability",
+  "i.Charges, i.IsCrafted, i.Creator",
+  ...TEMPLATE_COLUMNS.map((c) => `COALESCE(u.${c}, t.${c}) AS ${c}`),
+  "(COALESCE(u.MaxCount, t.MaxCount) > 1) AS IsStackable",
+].join(", ");
 
 const ITEM_JOIN =
-  "LEFT JOIN ItemTemplate t ON t.Id_nb = COALESCE(i.UTemplate_Id, i.ITemplate_Id)";
+  "LEFT JOIN ItemUnique u ON u.Id_nb = i.UTemplate_Id " +
+  "LEFT JOIN ItemTemplate t ON t.Id_nb = i.ITemplate_Id";
 
-/** Character inventory: equipment + backpack + personal vault + money pseudo-slots. */
-export function buildCharacterInventoryQuery(ownerId: string): Sql {
+function buildScopeInventoryQuery(ownerId: string, scope: InventoryScope): Sql {
+  const ranges = SCOPE_SLOT_RANGES[scope];
   return {
     text:
       `SELECT ${ITEM_COLUMNS} FROM Inventory i ${ITEM_JOIN} ` +
-      `WHERE i.OwnerID = ? AND ` +
-      `((i.SlotPosition >= ? AND i.SlotPosition <= ?) OR ` +
-      `(i.SlotPosition >= ? AND i.SlotPosition <= ?) OR ` +
-      `(i.SlotPosition >= ? AND i.SlotPosition <= ?) OR ` +
-      `(i.SlotPosition >= ? AND i.SlotPosition <= ?)) ` +
-      `ORDER BY i.SlotPosition ASC`,
-    values: [
-      ownerId,
-      EQUIPMENT_SLOT_MIN,
-      EQUIPMENT_SLOT_MAX,
-      BACKPACK_SLOT_MIN,
-      BACKPACK_SLOT_MAX,
-      PERSONAL_VAULT_SLOT_MIN,
-      PERSONAL_VAULT_SLOT_MAX,
-      MONEY_SLOT_MIN,
-      MONEY_SLOT_MAX,
-    ],
+      `WHERE i.OwnerID = ? AND (` +
+      ranges.map(() => "(i.SlotPosition >= ? AND i.SlotPosition <= ?)").join(" OR ") +
+      `) ORDER BY i.SlotPosition ASC`,
+    values: [ownerId, ...ranges.flat()],
   };
+}
+
+/** Character inventory: equipment + backpack + horse bags + personal vault. */
+export function buildCharacterInventoryQuery(ownerId: string): Sql {
+  return buildScopeInventoryQuery(ownerId, "character");
 }
 
 /** Guild vault: house-vault DB slots (1000-1799) owned by the guild's GuildID. */
 export function buildGuildInventoryQuery(guildId: string): Sql {
-  return {
-    text:
-      `SELECT ${ITEM_COLUMNS} FROM Inventory i ${ITEM_JOIN} ` +
-      `WHERE i.OwnerID = ? AND i.SlotPosition >= ? AND i.SlotPosition <= ? ` +
-      `ORDER BY i.SlotPosition ASC`,
-    values: [guildId, HOUSE_VAULT_SLOT_MIN, HOUSE_VAULT_SLOT_MAX],
-  };
+  return buildScopeInventoryQuery(guildId, "guild");
 }
 
 /**
- * Account vault: DB slots 2500-2699 owned by `{accountName}_{realm}`.
+ * Account vault: DB slots 2500-2699 owned by accountVaultOwnerId().
  * The account vault has two pages of 100 slots each (vault index 0 and 1).
  */
 export function buildAccountInventoryQuery(accountName: string, realm: number): Sql {
-  return {
-    text:
-      `SELECT ${ITEM_COLUMNS} FROM Inventory i ${ITEM_JOIN} ` +
-      `WHERE i.OwnerID = ? AND i.SlotPosition >= ? AND i.SlotPosition <= ? ` +
-      `ORDER BY i.SlotPosition ASC`,
-    values: [
-      `${accountName}_${realm}`,
-      ACCOUNT_VAULT_SLOT_MIN,
-      ACCOUNT_VAULT_SLOT_MAX,
-    ],
-  };
+  return buildScopeInventoryQuery(accountVaultOwnerId(accountName, realm), "account");
 }
 
 export function buildGetInventoryItemQuery(inventoryId: string): Sql {
@@ -173,7 +226,7 @@ export function buildUpdateInventoryItemQuery(
   for (const [key, column] of Object.entries(UPDATABLE_INVENTORY_FIELDS)) {
     const field = key as UpdatableInventoryField;
     if (!(field in updates)) continue;
-    sets.push(`${column} = ?`);
+    sets.push(`\`${column}\` = ?`);
     values.push(updates[field]);
   }
   if (sets.length === 0) {
@@ -201,11 +254,33 @@ export function buildSlotOccupiedQuery(ownerId: string, slotPosition: number): S
   };
 }
 
-/** Check whether an item template exists (used before granting items). */
-export function buildItemTemplateExistsQuery(idNb: string): Sql {
+/** Look up the stacking rules of an item template (used before granting items). */
+export function buildItemTemplateStackQuery(idNb: string): Sql {
   return {
-    text: "SELECT Id_nb FROM ItemTemplate WHERE Id_nb = ? LIMIT 1",
+    text: "SELECT Id_nb, MaxCount FROM ItemTemplate WHERE Id_nb = ? LIMIT 1",
     values: [idNb],
+  };
+}
+
+/**
+ * Is any player who could be holding this inventory in game memory online?
+ * OpenDAoC stamps account.LastLogin on login and LastDisconnected on
+ * disconnect, so an account is online while LastLogin is later than
+ * LastDisconnected. The owner is matched three ways:
+ *   - a character ID (character inventory): that character's account;
+ *   - a GuildID (guild vault): any member's account;
+ *   - an account vault owner ID: that account (pass its name as accountName).
+ */
+export function buildOwnerOnlineQuery(ownerId: string, accountName: string | null): Sql {
+  return {
+    text:
+      "SELECT a.Name FROM account a " +
+      "WHERE a.LastLogin IS NOT NULL " +
+      "AND (a.LastDisconnected IS NULL OR a.LastLogin > a.LastDisconnected) " +
+      "AND (a.Name = ? OR a.Name IN " +
+      "(SELECT c.AccountName FROM DOLCharacters c WHERE c.DOLCharacters_ID = ? OR c.GuildID = ?)) " +
+      "LIMIT 1",
+    values: [accountName, ownerId, ownerId],
   };
 }
 
@@ -227,7 +302,7 @@ export function buildGrantInventoryItemQuery(params: {
       "INSERT INTO Inventory " +
       "(Inventory_ID, OwnerID, OwnerLot, ITemplate_Id, UTemplate_Id, IsCrafted, Creator, " +
       " SlotPosition, Count, SellPrice, Experience, Color, Emblem, Extension, " +
-      " Condition, Durability, PoisonSpellID, PoisonMaxCharges, PoisonCharges, " +
+      " `Condition`, Durability, PoisonSpellID, PoisonMaxCharges, PoisonCharges, " +
       " Charges, Charges1, Cooldown, LastTimeRowUpdated, IsROG, SalvageExtension) " +
       "SELECT ?, ?, 0, ?, NULL, 0, '', ?, ?, ?, 0, 0, " +
       " t.Color, t.Emblem, t.Extension, t.MaxCondition, t.MaxDurability, 0, 0, 0, " +
@@ -344,10 +419,8 @@ export async function getAccountInventory(
 }
 
 export async function getInventoryItem(inventoryId: string): Promise<InventoryItem | null> {
-  const [rows] = await gameDb.query<InventoryRow[]>(
-    buildGetInventoryItemQuery(inventoryId).text,
-    buildGetInventoryItemQuery(inventoryId).values,
-  );
+  const { text, values } = buildGetInventoryItemQuery(inventoryId);
+  const [rows] = await gameDb.query<InventoryRow[]>(text, values);
   return rows[0] ? toItem(rows[0]) : null;
 }
 
@@ -372,8 +445,25 @@ export async function isSlotOccupied(ownerId: string, slotPosition: number): Pro
   return rows.length > 0;
 }
 
-export async function itemTemplateExists(idNb: string): Promise<boolean> {
-  const { text, values } = buildItemTemplateExistsQuery(idNb);
+export interface ItemTemplateStack {
+  isStackable: boolean;
+  maxCount: number;
+}
+
+export async function getItemTemplateStack(idNb: string): Promise<ItemTemplateStack | null> {
+  const { text, values } = buildItemTemplateStackQuery(idNb);
+  const [rows] = await gameDb.query<RowDataPacket[]>(text, values);
+  const r = rows[0];
+  return r ? { isStackable: n(r.MaxCount) > 1, maxCount: n(r.MaxCount) } : null;
+}
+
+/** Largest valid Count for an item: 1 unless stackable, then the template's MaxCount. */
+export function maxStackCount(t: ItemTemplateStack): number {
+  return t.isStackable ? Math.max(1, t.maxCount) : 1;
+}
+
+export async function isOwnerOnline(ownerId: string): Promise<boolean> {
+  const { text, values } = buildOwnerOnlineQuery(ownerId, accountNameFromVaultOwnerId(ownerId));
   const [rows] = await gameDb.query<RowDataPacket[]>(text, values);
   return rows.length > 0;
 }
@@ -391,16 +481,16 @@ export async function grantInventoryItem(params: {
   return res.affectedRows > 0;
 }
 
-/** Generate a unique Inventory_ID (timestamp + random suffix). */
+/** Generate a unique Inventory_ID: a GUID, like the game's own rows. */
 export function generateInventoryId(): string {
-  return `inv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  return randomUUID();
 }
 
 /** Describe a slot range for UI grouping. */
 export function slotGroupName(slot: number): string {
-  if (slot >= MONEY_SLOT_MIN && slot <= MONEY_SLOT_MAX) return "Money";
   if (slot >= EQUIPMENT_SLOT_MIN && slot <= EQUIPMENT_SLOT_MAX) return "Equipped";
   if (slot >= BACKPACK_SLOT_MIN && slot <= BACKPACK_SLOT_MAX) return "Backpack";
+  if (slot >= HORSE_BAG_SLOT_MIN && slot <= HORSE_BAG_SLOT_MAX) return "Horse Bags";
   if (slot >= PERSONAL_VAULT_SLOT_MIN && slot <= PERSONAL_VAULT_SLOT_MAX) return "Personal Vault";
   if (slot >= HOUSE_VAULT_SLOT_MIN && slot <= HOUSE_VAULT_SLOT_MAX) return "Guild Vault";
   if (slot >= ACCOUNT_VAULT_SLOT_MIN && slot <= ACCOUNT_VAULT_SLOT_MAX) return "Account Vault";

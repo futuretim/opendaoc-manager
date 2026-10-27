@@ -1,18 +1,23 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { writeAudit } from "../audit.js";
-import { clientIp } from "../auth/guards.js";
-import { characterExists, getCharacter, getCharacterId } from "../db/characters.js";
+import { clientIp, requireRole } from "../auth/guards.js";
+import { getCharacter, getCharacterId, type CharacterDetail } from "../db/characters.js";
 import {
   ACCOUNT_VAULTS,
+  accountVaultOwnerId,
   generateInventoryId,
   getAccountInventory,
   getCharacterInventory,
   getGuildInventory,
   getInventoryItem,
+  getItemTemplateStack,
   grantInventoryItem,
+  isOwnerOnline,
   isSlotOccupied,
-  itemTemplateExists,
+  isWritableSlot,
+  maxStackCount,
+  scopeForSlot,
   updateInventoryItem,
   deleteInventoryItem,
   VAULT_SIZE,
@@ -22,20 +27,21 @@ import {
 import { gameDb } from "../db/gameDb.js";
 import type { RowDataPacket } from "mysql2";
 
+const ONLINE_MESSAGE =
+  "A player who holds this inventory is online. The game server keeps it in memory and " +
+  "would overwrite or duplicate the change; try again once they have logged out.";
+
 const scopeSchema = z.enum(["character", "guild", "account"]);
 
 /** Resolve the inventory owner ID for a scope + character. */
 async function resolveOwner(
   scope: InventoryScope,
-  characterName: string,
+  character: CharacterDetail,
 ): Promise<{ ownerId: string; label: string } | null> {
-  const character = await getCharacter(characterName);
-  if (!character) return null;
-
   if (scope === "character") {
-    const id = await getCharacterId(characterName);
+    const id = await getCharacterId(character.name);
     if (!id) return null;
-    return { ownerId: id, label: `character:${characterName}` };
+    return { ownerId: id, label: `character:${character.name}` };
   }
 
   if (scope === "guild") {
@@ -43,9 +49,8 @@ async function resolveOwner(
     return { ownerId: character.guildId, label: `guild:${character.guildName ?? character.guildId}` };
   }
 
-  // account vault: owner ID is `{accountName}_{realm}`
   return {
-    ownerId: `${character.accountName}_${character.realm}`,
+    ownerId: accountVaultOwnerId(character.accountName, character.realm),
     label: `account:${character.accountName}`,
   };
 }
@@ -81,11 +86,12 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
     const { name } = request.params as { name: string };
     const { scope } = listQuery.parse(request.query);
 
-    if (!(await characterExists(name))) {
+    const character = await getCharacter(name);
+    if (!character) {
       return reply.code(404).send({ error: { code: "not_found", message: "Character not found." } });
     }
 
-    const resolved = await resolveOwner(scope, name);
+    const resolved = await resolveOwner(scope, character);
     if (!resolved) {
       const msg =
         scope === "guild"
@@ -96,21 +102,20 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(404).send({ error: { code: "not_found", message: msg } });
     }
 
-    const character = await getCharacter(name);
     let items;
     if (scope === "character") {
       items = await getCharacterInventory(resolved.ownerId);
     } else if (scope === "guild") {
       items = await getGuildInventory(resolved.ownerId);
     } else {
-      items = await getAccountInventory(character!.accountName, character!.realm);
+      items = await getAccountInventory(character.accountName, character.realm);
     }
 
     return {
       scope,
       ownerId: resolved.ownerId,
-      guildName: scope === "guild" ? character?.guildName : undefined,
-      accountName: scope === "account" ? character?.accountName : undefined,
+      guildName: scope === "guild" ? character.guildName : undefined,
+      accountName: scope === "account" ? character.accountName : undefined,
       items,
     };
   });
@@ -140,10 +145,31 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(404).send({ error: { code: "not_found", message: "Inventory item not found." } });
     }
 
-    // If moving to a new slot, verify the destination is free.
     const updates = parsed.data as Partial<Record<UpdatableInventoryField, unknown>>;
-    const newSlot = updates.slotPosition;
+    const scope = scopeForSlot(existing.slotPosition);
+    if (!scope) {
+      return reply
+        .code(400)
+        .send({ error: { code: "bad_request", message: `Slot ${existing.slotPosition} is not managed here.` } });
+    }
+
+    // Only a changed count is checked, so moving an item with odd existing data still works.
+    const newCount = parsed.data.count;
+    if (typeof newCount === "number" && newCount !== existing.count && newCount > maxStackCount(existing)) {
+      return reply.code(400).send({
+        error: { code: "bad_request", message: `Count must be at most ${maxStackCount(existing)} for this item.` },
+      });
+    }
+
+    // A move stays inside the item's own scope (an owner ID only means something
+    // for its own slot ranges) and never targets an equipment slot.
+    const newSlot = parsed.data.slotPosition;
     if (typeof newSlot === "number" && newSlot !== existing.slotPosition) {
+      if (!isWritableSlot(scope, newSlot)) {
+        return reply.code(400).send({
+          error: { code: "bad_request", message: `Slot ${newSlot} is not a ${scope} bag or vault slot.` },
+        });
+      }
       if (await isSlotOccupied(existing.ownerId, newSlot)) {
         return reply.code(409).send({
           error: {
@@ -152,6 +178,10 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
           },
         });
       }
+    }
+
+    if (await isOwnerOnline(existing.ownerId)) {
+      return reply.code(409).send({ error: { code: "player_online", message: ONLINE_MESSAGE } });
     }
 
     await updateInventoryItem(inventoryId, updates);
@@ -168,12 +198,17 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // Delete (remove) an inventory item.
-  app.delete("/inventory/:inventoryId", async (request, reply) => {
+  // Admin-only, like character rename/move.
+  app.delete("/inventory/:inventoryId", { preHandler: requireRole("admin") }, async (request, reply) => {
     const { inventoryId } = request.params as { inventoryId: string };
 
     const existing = await getInventoryItem(inventoryId);
     if (!existing) {
       return reply.code(404).send({ error: { code: "not_found", message: "Inventory item not found." } });
+    }
+
+    if (await isOwnerOnline(existing.ownerId)) {
+      return reply.code(409).send({ error: { code: "player_online", message: ONLINE_MESSAGE } });
     }
 
     await deleteInventoryItem(inventoryId);
@@ -195,7 +230,8 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // Grant (create) an inventory item from an ItemTemplate.
-  app.post("/characters/:name/inventory/grant", async (request, reply) => {
+  // Admin-only, like character rename/move.
+  app.post("/characters/:name/inventory/grant", { preHandler: requireRole("admin") }, async (request, reply) => {
     const { name } = request.params as { name: string };
     const parsed = grantBody.safeParse(request.body);
     if (!parsed.success) {
@@ -205,11 +241,12 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
     }
     const { scope, itemTemplateId, slotPosition, count, sellPrice } = parsed.data;
 
-    if (!(await characterExists(name))) {
+    const character = await getCharacter(name);
+    if (!character) {
       return reply.code(404).send({ error: { code: "not_found", message: "Character not found." } });
     }
 
-    const resolved = await resolveOwner(scope, name);
+    const resolved = await resolveOwner(scope, character);
     if (!resolved) {
       const msg =
         scope === "guild"
@@ -220,10 +257,26 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(404).send({ error: { code: "not_found", message: msg } });
     }
 
-    if (!(await itemTemplateExists(itemTemplateId))) {
+    if (!isWritableSlot(scope, slotPosition)) {
+      return reply.code(400).send({
+        error: { code: "bad_request", message: `Slot ${slotPosition} is not a ${scope} bag or vault slot.` },
+      });
+    }
+
+    const template = await getItemTemplateStack(itemTemplateId);
+    if (!template) {
       return reply
         .code(404)
         .send({ error: { code: "not_found", message: `Item template "${itemTemplateId}" not found.` } });
+    }
+    if (count > maxStackCount(template)) {
+      return reply.code(400).send({
+        error: { code: "bad_request", message: `Count must be at most ${maxStackCount(template)} for this item.` },
+      });
+    }
+
+    if (await isOwnerOnline(resolved.ownerId)) {
+      return reply.code(409).send({ error: { code: "player_online", message: ONLINE_MESSAGE } });
     }
 
     if (await isSlotOccupied(resolved.ownerId, slotPosition)) {
@@ -307,7 +360,7 @@ export async function inventoryRoutes(app: FastifyInstance): Promise<void> {
     return {
       accountName: character.accountName,
       realm: character.realm,
-      ownerId: `${character.accountName}_${character.realm}`,
+      ownerId: accountVaultOwnerId(character.accountName, character.realm),
       vaultCount: ACCOUNT_VAULTS,
       vaultSize: VAULT_SIZE,
     };
